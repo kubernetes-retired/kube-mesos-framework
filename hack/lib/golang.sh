@@ -19,32 +19,14 @@ readonly KUBE_GO_PACKAGE=k8s.io/kubernetes
 readonly KUBE_GOPATH="${KUBE_OUTPUT}/go"
 
 # Load contrib target functions
-if [ -n "${KUBERNETES_CONTRIB:-}" ]; then
-  for contrib in "${KUBERNETES_CONTRIB}"; do
-    source "${KUBE_ROOT}/contrib/${contrib}/target.sh"
-  done
-fi
+source "${KUBE_ROOT}/contrib/mesos/target.sh"
 
 # The set of server targets that we are only building for Linux
 # Note: if you are adding something here, you might need to add it to
 # kube::build::source_targets in build/common.sh as well.
 kube::golang::server_targets() {
-  local targets=(
-    cmd/kube-dns
-    cmd/kube-proxy
-    cmd/kube-apiserver
-    cmd/kube-controller-manager
-    cmd/kubelet
-    cmd/kubeadm
-    cmd/kubemark
-    cmd/hyperkube
-    plugin/cmd/kube-scheduler
-  )
-  if [ -n "${KUBERNETES_CONTRIB:-}" ]; then
-    for contrib in "${KUBERNETES_CONTRIB}"; do
-      targets+=($(eval "kube::contrib::${contrib}::server_targets"))
-    done
-  fi
+  local targets=()
+  targets+=($(eval "kube::contrib::mesos::server_targets"))
   echo "${targets[@]}"
 }
 
@@ -104,58 +86,6 @@ else
   )
 fi
 
-# The set of client targets that we are building for all platforms
-readonly KUBE_CLIENT_TARGETS=(
-  cmd/kubectl
-)
-readonly KUBE_CLIENT_BINARIES=("${KUBE_CLIENT_TARGETS[@]##*/}")
-readonly KUBE_CLIENT_BINARIES_WIN=("${KUBE_CLIENT_BINARIES[@]/%/.exe}")
-
-# The set of test targets that we are building for all platforms
-kube::golang::test_targets() {
-  local targets=(
-    cmd/gendocs
-    cmd/genkubedocs
-    cmd/genman
-    cmd/genyaml
-    cmd/mungedocs
-    cmd/genswaggertypedocs
-    cmd/linkcheck
-    examples/k8petstore/web-server/src
-    federation/cmd/genfeddocs
-    vendor/github.com/onsi/ginkgo/ginkgo
-    test/e2e/e2e.test
-  )
-  if [ -n "${KUBERNETES_CONTRIB:-}" ]; then
-    for contrib in "${KUBERNETES_CONTRIB}"; do
-      targets+=($(eval "kube::contrib::${contrib}::test_targets"))
-    done
-  fi
-  echo "${targets[@]}"
-}
-readonly KUBE_TEST_TARGETS=($(kube::golang::test_targets))
-readonly KUBE_TEST_BINARIES=("${KUBE_TEST_TARGETS[@]##*/}")
-readonly KUBE_TEST_BINARIES_WIN=("${KUBE_TEST_BINARIES[@]/%/.exe}")
-readonly KUBE_TEST_PORTABLE=(
-  test/e2e/testing-manifests
-  test/kubemark
-  hack/e2e.go
-  hack/e2e-internal
-  hack/get-build.sh
-  hack/ginkgo-e2e.sh
-  hack/federated-ginkgo-e2e.sh
-  hack/lib
-)
-
-# Node test has built-in etcd and kube-apiserver, it can only be built on the
-# same platforms with kube-apiserver.
-readonly KUBE_NODE_TEST_TARGETS=(
-  vendor/github.com/onsi/ginkgo/ginkgo
-  test/e2e_node/e2e_node.test
-)
-readonly KUBE_NODE_TEST_BINARIES=("${KUBE_NODE_TEST_TARGETS[@]##*/}")
-readonly KUBE_NODE_TEST_PLATFORMS=("${KUBE_SERVER_PLATFORMS[@]}")
-
 # Gigabytes desired for parallel platform builds. 11 is fairly
 # arbitrary, but is a reasonable splitting point for 2015
 # laptops-versus-not.
@@ -169,9 +99,6 @@ readonly KUBE_PARALLEL_BUILD_MEMORY=11
 
 readonly KUBE_ALL_TARGETS=(
   "${KUBE_SERVER_TARGETS[@]}"
-  "${KUBE_CLIENT_TARGETS[@]}"
-  "${KUBE_TEST_TARGETS[@]}"
-  "${KUBE_NODE_TEST_TARGETS[@]}"
 )
 readonly KUBE_ALL_BINARIES=("${KUBE_ALL_TARGETS[@]##*/}")
 
