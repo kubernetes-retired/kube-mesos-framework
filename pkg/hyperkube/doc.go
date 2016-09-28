@@ -1,5 +1,5 @@
 /*
-Copyright 2014 The Kubernetes Authors.
+Copyright 2015 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,17 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package hyperkube is a framework for kubernetes server components.  It
-// allows us to combine all of the kubernetes server components into a single
-// binary where the user selects which components to run in any individual
-// process.
-//
-// Currently, only one server component can be run at once.  As such there is
-// no need to harmonize flags or identify logs across the various servers.  In
-// the future we will support launching and running many servers -- either by
-// managing processes or running in-proc.
-//
-// This package is inspired by https://github.com/spf13/cobra.  However, as
-// the eventual goal is to run *multiple* servers from one call, a new package
-// was needed.
-package hyperkube // import "k8s.io/kubernetes/pkg/hyperkube"
+// Package hyperkube facilitates the combination of multiple
+// kubernetes-mesos components into a single binary form, providing a
+// simple mechanism for intra-component discovery as per the original
+// Kubernetes hyperkube package.
+package hyperkube // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
