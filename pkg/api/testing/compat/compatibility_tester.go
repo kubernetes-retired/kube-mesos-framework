@@ -19,7 +19,6 @@ package compat
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -28,7 +27,6 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/kubectl"
 	"k8s.io/kubernetes/pkg/runtime"
 	"k8s.io/kubernetes/pkg/util/validation/field"
 )
@@ -94,8 +92,6 @@ func TestCompatibility(
 	}
 
 	if hasError {
-		printer := new(kubectl.JSONPrinter)
-		printer.PrintObj(obj, os.Stdout)
 		t.Logf("2: Encoded value: %#v", string(output))
 	}
 }
