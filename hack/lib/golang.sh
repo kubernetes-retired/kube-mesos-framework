@@ -15,11 +15,11 @@
 # limitations under the License.
 
 # The golang package that we are building.
-readonly KUBE_GO_PACKAGE=k8s.io/kubernetes
+readonly KUBE_GO_PACKAGE=github.com/kubernetes-incubator/kube-mesos-framework
 readonly KUBE_GOPATH="${KUBE_OUTPUT}/go"
 
 # Load contrib target functions
-source "${KUBE_ROOT}/contrib/mesos/target.sh"
+source "${KUBE_ROOT}/target.sh"
 
 # The set of server targets that we are only building for Linux
 # Note: if you are adding something here, you might need to add it to
