@@ -17,7 +17,7 @@ limitations under the License.
 package executor
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/node"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/node"
 	"k8s.io/kubernetes/pkg/api"
 	unversionedcore "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/core/unversioned"
 )

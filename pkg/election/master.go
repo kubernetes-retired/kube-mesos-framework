@@ -17,7 +17,7 @@ limitations under the License.
 package election
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
 	"k8s.io/kubernetes/pkg/watch"
 
 	"github.com/golang/glog"

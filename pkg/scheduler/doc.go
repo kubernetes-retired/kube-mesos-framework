@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // Package scheduler implements the Kubernetes Mesos scheduler.
-package scheduler // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler"
+package scheduler // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler"
 
 // Created from contrib/mesos/docs/scheduler.monopic:
 //

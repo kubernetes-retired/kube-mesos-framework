@@ -18,8 +18,8 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/controllermanager"
-	"k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/controllermanager"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
 )
 
 // NewHyperkubeServer creates a new hyperkube Server object that includes the

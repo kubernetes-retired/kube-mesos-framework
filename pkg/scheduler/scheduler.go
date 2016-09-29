@@ -19,8 +19,8 @@ package scheduler
 import (
 	"sync"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/offers"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/offers"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"
 )
 
 // Scheduler abstracts everything other components of the scheduler need

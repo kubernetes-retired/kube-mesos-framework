@@ -22,9 +22,9 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/algorithm"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/binder"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/algorithm"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/binder"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/record"
 )

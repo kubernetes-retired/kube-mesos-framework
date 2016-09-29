@@ -19,10 +19,10 @@ package scheduler
 import (
 	"sync"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/offers"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"
 	"github.com/stretchr/testify/mock"
-	"k8s.io/kubernetes/contrib/mesos/pkg/offers"
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
 	"time"
 )
 

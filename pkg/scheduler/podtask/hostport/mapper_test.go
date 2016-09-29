@@ -19,9 +19,9 @@ package hostport
 import (
 	"testing"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	"github.com/mesos/mesos-go/mesosutil"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
 	"k8s.io/kubernetes/pkg/api"
 )
 

@@ -16,4 +16,4 @@ limitations under the License.
 
 // Package executorinfo provides a lru-based executor info registry
 // as well as some utility methods.
-package executorinfo // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/executorinfo"
+package executorinfo // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/executorinfo"

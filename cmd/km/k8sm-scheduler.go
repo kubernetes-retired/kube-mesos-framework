@@ -18,8 +18,8 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/service"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/service"
 )
 
 // NewScheduler creates a new hyperkube Server object that includes the

@@ -16,4 +16,4 @@ limitations under the License.
 
 // Package queuer implements a Pod Queuer which stores and yields pods waiting
 // being scheduled.
-package queuer // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/queuer"
+package queuer // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/queuer"

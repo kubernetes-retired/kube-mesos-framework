@@ -22,9 +22,9 @@ import (
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/node"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
 	"github.com/mesos/mesos-go/mesosproto"
-	"k8s.io/kubernetes/contrib/mesos/pkg/node"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
 )
 
 // Registry is the interface that provides methods for interacting

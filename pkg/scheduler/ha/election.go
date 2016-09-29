@@ -18,7 +18,7 @@ package ha
 
 import (
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/election"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/election"
 )
 
 type roleType int

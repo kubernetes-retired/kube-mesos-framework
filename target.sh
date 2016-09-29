@@ -18,10 +18,10 @@
 # Used by hack/lib/golang.sh
 kube::contrib::mesos::server_targets() {
   local -r targets=(
-    contrib/mesos/cmd/k8sm-scheduler
-    contrib/mesos/cmd/k8sm-executor
-    contrib/mesos/cmd/k8sm-controller-manager
-    contrib/mesos/cmd/km
+    cmd/k8sm-scheduler
+    cmd/k8sm-executor
+    cmd/k8sm-controller-manager
+    cmd/km
   )
   echo "${targets[@]}"
 }

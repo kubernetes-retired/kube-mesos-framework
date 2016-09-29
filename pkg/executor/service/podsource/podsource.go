@@ -17,8 +17,8 @@ limitations under the License.
 package podsource
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/executor"
-	"k8s.io/kubernetes/contrib/mesos/pkg/podutil"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/podutil"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"

@@ -23,8 +23,8 @@ import (
 
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/executor/messages"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor/messages"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
 	"k8s.io/kubernetes/pkg/api"
 
 	log "github.com/golang/glog"

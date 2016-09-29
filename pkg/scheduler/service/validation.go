@@ -18,8 +18,8 @@ package service
 
 import (
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/podutil"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/podutil"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 	"k8s.io/kubernetes/pkg/api"
 )
 

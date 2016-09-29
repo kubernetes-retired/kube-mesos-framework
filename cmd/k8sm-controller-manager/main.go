@@ -25,7 +25,7 @@ import (
 	"k8s.io/kubernetes/pkg/util/logs"
 	"k8s.io/kubernetes/pkg/version/verflag"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/controllermanager"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/controllermanager"
 
 	"github.com/spf13/pflag"
 )

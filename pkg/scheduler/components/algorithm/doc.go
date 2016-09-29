@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package algorithm implements the SchedulerAlgorithm
-package algorithm // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/algorithm"
+package algorithm // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/algorithm"

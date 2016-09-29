@@ -27,7 +27,7 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
 )
 
 const (

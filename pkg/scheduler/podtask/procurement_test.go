@@ -22,9 +22,9 @@ import (
 	"github.com/mesos/mesos-go/mesosproto"
 	"github.com/mesos/mesos-go/mesosutil"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask/hostport"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 	mesos "github.com/mesos/mesos-go/mesosproto"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask/hostport"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"reflect"

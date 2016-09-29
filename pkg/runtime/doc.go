@@ -16,4 +16,4 @@ limitations under the License.
 
 // Package runtime provides utilities for semaphores (chan struct{}),
 // a simple Latch implementation, and metrics for reporting handled panics.
-package runtime // import "k8s.io/kubernetes/contrib/mesos/pkg/runtime"
+package runtime // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"

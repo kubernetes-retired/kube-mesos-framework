@@ -19,14 +19,14 @@ package deleter
 import (
 	"testing"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/queue"
+	types "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/errors"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask/hostport"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/queuer"
 	"github.com/mesos/mesos-go/mesosproto"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/kubernetes/contrib/mesos/pkg/queue"
-	types "k8s.io/kubernetes/contrib/mesos/pkg/scheduler"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/errors"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask/hostport"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/queuer"
 	"k8s.io/kubernetes/pkg/api"
 )
 

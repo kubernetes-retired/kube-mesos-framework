@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/service"
 	"github.com/spf13/pflag"
-	"k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/service"
 	"k8s.io/kubernetes/pkg/util/flag"
 	"k8s.io/kubernetes/pkg/util/logs"
 	"k8s.io/kubernetes/pkg/version/verflag"

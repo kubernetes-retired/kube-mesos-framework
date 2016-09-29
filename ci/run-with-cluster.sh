@@ -22,7 +22,7 @@
 # ./cluster/mesos/docker/test/build.sh
 #
 # Example Usage:
-# ./contrib/mesos/ci/run-with-cluster.sh ./cluster/test-smoke.sh -v=2
+# ./ci/run-with-cluster.sh ./cluster/test-smoke.sh -v=2
 
 set -o errexit
 set -o nounset

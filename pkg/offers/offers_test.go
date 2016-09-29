@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/proc"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	util "github.com/mesos/mesos-go/mesosutil"
-	"k8s.io/kubernetes/contrib/mesos/pkg/proc"
 )
 
 func TestExpiredOffer(t *testing.T) {

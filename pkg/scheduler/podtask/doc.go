@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package podtask maps Kubernetes pods to Mesos tasks.
-package podtask // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
+package podtask // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"

@@ -20,9 +20,9 @@ import (
 	"fmt"
 
 	log "github.com/golang/glog"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 	mesos "github.com/mesos/mesos-go/mesosproto"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
 	"k8s.io/kubernetes/pkg/api"
 )
 

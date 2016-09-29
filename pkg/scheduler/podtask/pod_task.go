@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/offers"
+	mesosmeta "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/metrics"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask/hostport"
 	"github.com/pborman/uuid"
-	"k8s.io/kubernetes/contrib/mesos/pkg/offers"
-	mesosmeta "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/metrics"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask/hostport"
 	"k8s.io/kubernetes/pkg/api"
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 

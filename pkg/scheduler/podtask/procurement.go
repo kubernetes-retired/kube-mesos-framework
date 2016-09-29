@@ -22,10 +22,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	log "github.com/golang/glog"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/executorinfo"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	"github.com/mesos/mesos-go/mesosutil"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/executorinfo"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/labels"
 )

@@ -22,11 +22,11 @@ import (
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/deleter"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/errors"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/queuer"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/deleter"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/errors"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/queuer"
 	"k8s.io/kubernetes/pkg/api"
 	apierrors "k8s.io/kubernetes/pkg/api/errors"
 )

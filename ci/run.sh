@@ -20,7 +20,7 @@
 # ./cluster/mesos/docker/test/build.sh
 #
 # Example Usage:
-# ./contrib/mesos/ci/run.sh make test
+# ./ci/run.sh make test
 
 set -o errexit
 set -o nounset

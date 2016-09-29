@@ -20,7 +20,7 @@
 # ./cluster/mesos/docker/test/build.sh
 #
 # Example Usage:
-# ./contrib/mesos/ci/build-release.sh
+# ./ci/build-release.sh
 
 set -o errexit
 set -o nounset
@@ -29,7 +29,7 @@ set -o errtrace
 
 KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/../../.." && pwd)
 
-"${KUBE_ROOT}/contrib/mesos/ci/run.sh" make clean
+"${KUBE_ROOT}/ci/run.sh" make clean
 
 export KUBERNETES_CONTRIB=mesos
 export KUBE_RELEASE_RUN_TESTS="${KUBE_RELEASE_RUN_TESTS:-N}"

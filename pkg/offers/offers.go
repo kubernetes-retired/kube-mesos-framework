@@ -24,11 +24,11 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/offers/metrics"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/proc"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/queue"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
 	mesos "github.com/mesos/mesos-go/mesosproto"
-	"k8s.io/kubernetes/contrib/mesos/pkg/offers/metrics"
-	"k8s.io/kubernetes/contrib/mesos/pkg/proc"
-	"k8s.io/kubernetes/contrib/mesos/pkg/queue"
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/util/sets"
 )

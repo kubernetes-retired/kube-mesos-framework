@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package service contains the cmd/k8sm-executor glue code.
-package service // import "k8s.io/kubernetes/contrib/mesos/pkg/executor/service"
+package service // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor/service"

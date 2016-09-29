@@ -24,9 +24,9 @@ import (
 	"strconv"
 
 	"github.com/gogo/protobuf/proto"
+	execcfg "github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor/config"
 	"github.com/mesos/mesos-go/mesosproto"
 	mesos "github.com/mesos/mesos-go/mesosproto"
-	execcfg "k8s.io/kubernetes/contrib/mesos/pkg/executor/config"
 )
 
 func NewID(info *mesosproto.ExecutorInfo) *mesosproto.ExecutorID {

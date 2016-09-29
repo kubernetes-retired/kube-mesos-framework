@@ -16,4 +16,4 @@ limitations under the License.
 
 // Package queue provides several queue implementations, originally
 // inspired by Kubernetes pkg/client/cache/fifo.
-package queue // import "k8s.io/kubernetes/contrib/mesos/pkg/queue"
+package queue // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/queue"

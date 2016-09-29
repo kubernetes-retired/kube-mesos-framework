@@ -18,9 +18,9 @@ limitations under the License.
 package main
 
 import (
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
 	"k8s.io/kubernetes/cmd/kube-apiserver/app"
 	"k8s.io/kubernetes/cmd/kube-apiserver/app/options"
-	"k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
 )
 
 // NewKubeAPIServer creates a new hyperkube Server object that includes the

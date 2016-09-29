@@ -21,11 +21,11 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/proc"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/errors"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/metrics"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	bindings "github.com/mesos/mesos-go/scheduler"
-	"k8s.io/kubernetes/contrib/mesos/pkg/proc"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/errors"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/metrics"
 )
 
 type Action func(driver bindings.SchedulerDriver, cancel <-chan struct{}) <-chan error

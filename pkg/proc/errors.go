@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
 )
 
 var (

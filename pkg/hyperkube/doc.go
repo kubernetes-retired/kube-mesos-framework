@@ -18,4 +18,4 @@ limitations under the License.
 // kubernetes-mesos components into a single binary form, providing a
 // simple mechanism for intra-component discovery as per the original
 // Kubernetes hyperkube package.
-package hyperkube // import "k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
+package hyperkube // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"

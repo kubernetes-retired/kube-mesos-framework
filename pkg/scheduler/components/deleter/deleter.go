@@ -20,12 +20,12 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/queue"
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/errors"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/queuer"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/queue"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/errors"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/queuer"
 	"k8s.io/kubernetes/pkg/api"
 )
 

@@ -21,11 +21,11 @@ import (
 
 	log "github.com/golang/glog"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/node"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/offers"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/errors"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask"
 	"github.com/mesos/mesos-go/mesosproto"
-	"k8s.io/kubernetes/contrib/mesos/pkg/node"
-	"k8s.io/kubernetes/contrib/mesos/pkg/offers"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/errors"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask"
 	"k8s.io/kubernetes/pkg/api"
 )
 

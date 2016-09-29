@@ -20,7 +20,7 @@
 # ./cluster/mesos/docker/test/build.sh
 #
 # Example Usage:
-# ./contrib/mesos/ci/test-e2e.sh -v=2
+# ./ci/test-e2e.sh -v=2
 
 set -o errexit
 set -o nounset
@@ -31,4 +31,4 @@ TEST_ARGS="$@"
 
 KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/../../.." && pwd)
 
-"${KUBE_ROOT}/contrib/mesos/ci/run-with-cluster.sh" ./cluster/test-e2e.sh ${TEST_ARGS}
+"${KUBE_ROOT}/ci/run-with-cluster.sh" ./cluster/test-e2e.sh ${TEST_ARGS}

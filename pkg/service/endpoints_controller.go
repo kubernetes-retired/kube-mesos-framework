@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/endpoints"
 	"k8s.io/kubernetes/pkg/api/errors"

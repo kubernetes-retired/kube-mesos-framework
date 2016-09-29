@@ -17,4 +17,4 @@ limitations under the License.
 // Package controller implements the scheduling controller which waits for pod
 // events from the queuer (i.e. from the apiserver), passes them to the
 // SchedulerAlgorithm and in case of success to the binder which does the launch.
-package controller // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/controller"
+package controller // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/controller"

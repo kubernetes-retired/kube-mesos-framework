@@ -16,4 +16,4 @@ limitations under the License.
 
 // Package podschedulers defines an interface (w/ implementations) for matching
 // pods against offers.
-package podschedulers // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/algorithm/podschedulers"
+package podschedulers // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/algorithm/podschedulers"

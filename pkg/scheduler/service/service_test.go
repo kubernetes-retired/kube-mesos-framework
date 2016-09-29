@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 
 	"github.com/stretchr/testify/assert"
 )

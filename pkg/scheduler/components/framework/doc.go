@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package framework implements the Mesos scheduler.
-package framework // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/framework"
+package framework // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/framework"

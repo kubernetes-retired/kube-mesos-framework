@@ -19,10 +19,10 @@ package service_test
 import (
 	"testing"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/podutil"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/service"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/kubernetes/contrib/mesos/pkg/podutil"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/service"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 )

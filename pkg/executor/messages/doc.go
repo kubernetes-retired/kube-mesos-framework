@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package messages exposes executor event/message names as constants.
-package messages // import "k8s.io/kubernetes/contrib/mesos/pkg/executor/messages"
+package messages // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor/messages"

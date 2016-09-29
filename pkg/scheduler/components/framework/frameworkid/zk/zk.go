@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/framework/frameworkid"
 	"github.com/samuel/go-zookeeper/zk"
 	"golang.org/x/net/context"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/framework/frameworkid"
 )
 
 const RPC_TIMEOUT = time.Second * 5

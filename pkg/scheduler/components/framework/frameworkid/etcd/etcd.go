@@ -21,8 +21,8 @@ import (
 	"time"
 
 	etcd "github.com/coreos/etcd/client"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/components/framework/frameworkid"
 	"golang.org/x/net/context"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/components/framework/frameworkid"
 	etcdutil "k8s.io/kubernetes/pkg/storage/etcd/util"
 )
 

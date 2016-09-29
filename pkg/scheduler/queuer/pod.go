@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/queue"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/queue"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/client/cache"
 )

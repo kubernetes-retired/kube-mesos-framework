@@ -20,7 +20,7 @@
 # ./cluster/mesos/docker/test/build.sh
 #
 # Example Usage:
-# ./contrib/mesos/ci/test-conformance.sh -v=2
+# ./ci/test-conformance.sh -v=2
 
 set -o errexit
 set -o nounset
@@ -41,4 +41,4 @@ git clone -s -b ${CONFORMANCE_BRANCH} . conformance &&
 cd conformance && make all && ${TEST_CMD}"
 fi
 
-"${KUBE_ROOT}/contrib/mesos/ci/run-with-cluster.sh" ${TEST_CMD} ${TEST_ARGS}
+"${KUBE_ROOT}/ci/run-with-cluster.sh" ${TEST_CMD} ${TEST_ARGS}

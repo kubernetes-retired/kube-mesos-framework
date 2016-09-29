@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/node"
 	kubecontrollermanager "k8s.io/kubernetes/cmd/kube-controller-manager/app"
 	"k8s.io/kubernetes/cmd/kube-controller-manager/app/options"
-	"k8s.io/kubernetes/contrib/mesos/pkg/node"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
@@ -63,8 +63,8 @@ import (
 	certutil "k8s.io/kubernetes/pkg/util/cert"
 	"k8s.io/kubernetes/pkg/util/wait"
 
-	"k8s.io/kubernetes/contrib/mesos/pkg/profile"
-	kmendpoint "k8s.io/kubernetes/contrib/mesos/pkg/service"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/profile"
+	kmendpoint "github.com/kubernetes-incubator/kube-mesos-framework/pkg/service"
 
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"

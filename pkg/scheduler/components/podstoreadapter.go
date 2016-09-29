@@ -17,8 +17,8 @@ limitations under the License.
 package components
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/queue"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/queuer"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/queue"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/queuer"
 	"k8s.io/kubernetes/pkg/api"
 )
 

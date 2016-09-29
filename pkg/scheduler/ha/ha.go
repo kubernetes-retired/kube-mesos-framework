@@ -21,10 +21,10 @@ import (
 	"sync/atomic"
 
 	log "github.com/golang/glog"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/proc"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/runtime"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	bindings "github.com/mesos/mesos-go/scheduler"
-	"k8s.io/kubernetes/contrib/mesos/pkg/proc"
-	"k8s.io/kubernetes/contrib/mesos/pkg/runtime"
 )
 
 type DriverFactory func() (bindings.SchedulerDriver, error)

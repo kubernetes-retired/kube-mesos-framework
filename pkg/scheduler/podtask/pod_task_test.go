@@ -21,13 +21,13 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/node"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/podtask/hostport"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	mutil "github.com/mesos/mesos-go/mesosutil"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/kubernetes/contrib/mesos/pkg/node"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/podtask/hostport"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/resources"
 	"k8s.io/kubernetes/pkg/api"
 )
 

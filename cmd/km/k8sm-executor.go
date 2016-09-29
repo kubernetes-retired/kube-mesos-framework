@@ -17,8 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/executor/service"
-	"k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor/service"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
 )
 
 // NewHyperkubeServer creates a new hyperkube Server object that includes the

@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 
 	log "github.com/golang/glog"
-	"k8s.io/kubernetes/contrib/mesos/pkg/scheduler/meta"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/meta"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/validation"

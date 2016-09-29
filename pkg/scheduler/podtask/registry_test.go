@@ -21,11 +21,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/offers"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/proc"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	"github.com/mesos/mesos-go/mesosutil"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/kubernetes/contrib/mesos/pkg/offers"
-	"k8s.io/kubernetes/contrib/mesos/pkg/proc"
 )
 
 func TestInMemoryRegistry_RegisterGetUnregister(t *testing.T) {

@@ -15,4 +15,4 @@ limitations under the License.
 */
 
 // Package integration implements integration tests.
-package integration // import "k8s.io/kubernetes/contrib/mesos/pkg/scheduler/integration"
+package integration // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/integration"

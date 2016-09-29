@@ -17,8 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/kubernetes/contrib/mesos/pkg/hyperkube"
-	"k8s.io/kubernetes/contrib/mesos/pkg/minion"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
+	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/minion"
 )
 
 // NewMinion creates a new hyperkube Server object that includes the

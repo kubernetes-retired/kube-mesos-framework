@@ -18,4 +18,4 @@ limitations under the License.
 Package executor includes a mesos executor, which contains
 a kubelet as its member to manage containers.
 */
-package executor // import "k8s.io/kubernetes/contrib/mesos/pkg/executor"
+package executor // import "github.com/kubernetes-incubator/kube-mesos-framework/pkg/executor"
