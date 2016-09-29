@@ -1,5 +1,7 @@
 # Kubernetes-Mesos
 
+![build](https://travis-ci.org/kubernetes-incubator/kube-mesos-framework.svg?branch=master)
+
 Kubernetes-Mesos modifies Kubernetes to act as an [Apache Mesos](http://mesos.apache.org/) framework.
 
 ## Features On Mesos
