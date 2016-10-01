@@ -46,7 +46,6 @@ func New(sched scheduler.Scheduler) Binder {
 
 // implements binding.Registry, launches the pod-associated-task in mesos
 func (b *binder) Bind(binding *api.Binding) error {
-
 	ctx := api.WithNamespace(api.NewContext(), binding.Namespace)
 
 	// default upstream scheduler passes pod.Name as binding.Name

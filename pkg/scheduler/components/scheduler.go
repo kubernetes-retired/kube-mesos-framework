@@ -123,7 +123,13 @@ func New(
 		podtask.InstallDebugHandlers(core.Tasks(), mux)
 	})
 
-	core.controller = controller.New(client, algorithm, recorder, q.Yield, errorHandler.Error, binder, startLatch)
+	core.controller = controller.New(client,
+		algorithm,
+		recorder,
+		q.Yield,
+		errorHandler.Error,
+		binder,
+		startLatch)
 	return core
 }
 
