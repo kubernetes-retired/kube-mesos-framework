@@ -88,7 +88,7 @@ func NewCMServer() *CMServer {
 		CMServer: options.NewCMServer(),
 	}
 	s.CloudProvider = mesos.ProviderName
-	s.UseHostPortEndpoints = true
+	s.UseHostPortEndpoints = false
 	return s
 }
 
