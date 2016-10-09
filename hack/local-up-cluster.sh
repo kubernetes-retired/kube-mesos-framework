@@ -39,23 +39,12 @@ KUBECTL=${KUBECTL:-cluster/kubectl.sh}
 WAIT_FOR_URL_API_SERVER=${WAIT_FOR_URL_API_SERVER:-10}
 ENABLE_DAEMON=${ENABLE_DAEMON:-false}
 HOSTNAME_OVERRIDE=${HOSTNAME_OVERRIDE:-"127.0.0.1"}
-CLOUD_PROVIDER=${CLOUD_PROVIDER:-""}
-CLOUD_CONFIG=${CLOUD_CONFIG:-""}
+CLOUD_PROVIDER="mesos"
+CLOUD_CONFIG="mesos-cloud.conf"
+MESOS_MASTER=${MESOS_MASTER:-""}
 
 # START_MODE can be 'all', 'kubeletonly', or 'nokubelet'
 START_MODE=${START_MODE:-"all"}
-
-# sanity check for OpenStack provider
-if [ "${CLOUD_PROVIDER}" == "openstack" ]; then
-    if [ "${CLOUD_CONFIG}" == "" ]; then
-        echo "Missing CLOUD_CONFIG env for OpenStack provider!"
-        exit 1
-    fi
-    if [ ! -f "${CLOUD_CONFIG}" ]; then
-        echo "Cloud config ${CLOUD_CONFIG} doesn't exit"
-        exit 1
-    fi
-fi
 
 if [ "$(id -u)" != "0" ]; then
     echo "WARNING : This script MAY be run as root for docker socket / iptables functionality; if failures occur, retry as root." 2>&1
@@ -94,10 +83,20 @@ do
 done
 
 if [ "x$GO_OUT" == "x" ]; then
-    make -C "${KUBE_ROOT}" WHAT="cmd/kubectl cmd/hyperkube"
+    make -C "${KUBE_ROOT}" WHAT="cmd/km"
 else
     echo "skipped the build."
 fi
+
+if [ "$MESOS_MASTER" == "" ]; then
+	echo "The master address of Mesos is required."
+	exit 1
+fi
+
+cat <<EOF >mesos-cloud.conf
+[mesos-cloud]
+        mesos-master        = ${MESOS_MASTER}
+EOF
 
 function test_docker {
     ${DOCKER[@]} ps 2> /dev/null 1> /dev/null
@@ -202,14 +201,6 @@ function detect_binary {
    GO_OUT="${KUBE_ROOT}/_output/local/bin/${host_os}/${host_arch}"
 }
 
-cleanup_dockerized_kubelet()
-{
-  if [[ -e $KUBELET_CIDFILE ]]; then
-    docker kill $(<$KUBELET_CIDFILE) > /dev/null
-    rm -f $KUBELET_CIDFILE
-  fi
-}
-
 cleanup()
 {
   echo "Cleaning up..."
@@ -228,18 +219,6 @@ cleanup()
   # Check if the controller-manager is still running
   [[ -n "${CTLRMGR_PID-}" ]] && CTLRMGR_PIDS=$(pgrep -P ${CTLRMGR_PID} ; ps -o pid= -p ${CTLRMGR_PID})
   [[ -n "${CTLRMGR_PIDS-}" ]] && sudo kill ${CTLRMGR_PIDS}
-
-  if [[ -n "$DOCKERIZE_KUBELET" ]]; then
-    cleanup_dockerized_kubelet
-  else
-    # Check if the kubelet is still running
-    [[ -n "${KUBELET_PID-}" ]] && KUBELET_PIDS=$(pgrep -P ${KUBELET_PID} ; ps -o pid= -p ${KUBELET_PID})
-    [[ -n "${KUBELET_PIDS-}" ]] && sudo kill ${KUBELET_PIDS}
-  fi
-
-  # Check if the proxy is still running
-  [[ -n "${PROXY_PID-}" ]] && PROXY_PIDS=$(pgrep -P ${PROXY_PID} ; ps -o pid= -p ${PROXY_PID})
-  [[ -n "${PROXY_PIDS-}" ]] && sudo kill ${PROXY_PIDS}
 
   # Check if the scheduler is still running
   [[ -n "${SCHEDULER_PID-}" ]] && SCHEDULER_PIDS=$(pgrep -P ${SCHEDULER_PID} ; ps -o pid= -p ${SCHEDULER_PID})
@@ -296,7 +275,7 @@ function start_apiserver {
     fi
 
     APISERVER_LOG=/tmp/kube-apiserver.log
-    sudo -E "${GO_OUT}/hyperkube" apiserver ${priv_arg} ${runtime_config}\
+    sudo -E "${GO_OUT}/km" apiserver ${priv_arg} ${runtime_config}\
       ${advertise_address} \
       --v=${LOG_LEVEL} \
       --cert-dir="${CERT_DIR}" \
@@ -319,13 +298,10 @@ function start_apiserver {
 }
 
 function start_controller_manager {
-    node_cidr_args=""
-    if [[ "${NET_PLUGIN}" == "kubenet" ]]; then
-      node_cidr_args="--allocate-node-cidrs=true --cluster-cidr=10.1.0.0/16 "
-    fi
+    node_cidr_args="--allocate-node-cidrs=true --cluster-cidr=10.1.0.0/16 "
 
     CTLRMGR_LOG=/tmp/kube-controller-manager.log
-    sudo -E "${GO_OUT}/hyperkube" controller-manager \
+    sudo -E "${GO_OUT}/km" controller-manager \
       --v=${LOG_LEVEL} \
       --service-account-private-key-file="${SERVICE_ACCOUNT_KEY}" \
       --root-ca-file="${ROOT_CA_FILE}" \
@@ -338,139 +314,25 @@ function start_controller_manager {
     CTLRMGR_PID=$!
 }
 
-function start_kubelet {
-    KUBELET_LOG=/tmp/kubelet.log
-
-    priv_arg=""
-    if [[ -n "${ALLOW_PRIVILEGED}" ]]; then
-      priv_arg="--allow-privileged "
-    fi
-
-    mkdir -p /var/lib/kubelet
-    if [[ -z "${DOCKERIZE_KUBELET}" ]]; then
-      # On selinux enabled systems, it might
-      # require to relabel /var/lib/kubelet
-      if which selinuxenabled &> /dev/null && \
-         selinuxenabled && \
-         which chcon > /dev/null ; then
-         if [[ ! $(ls -Zd /var/lib/kubelet) =~ system_u:object_r:svirt_sandbox_file_t:s0 ]] ; then
-            echo "Applying SELinux label to /var/lib/kubelet directory."
-            if ! sudo chcon -Rt svirt_sandbox_file_t /var/lib/kubelet; then
-               echo "Failed to apply selinux label to /var/lib/kubelet."
-            fi
-         fi
-      fi
-      # Enable dns
-      if [[ "${ENABLE_CLUSTER_DNS}" = true ]]; then
-         dns_args="--cluster-dns=${DNS_SERVER_IP} --cluster-domain=${DNS_DOMAIN}"
-      else
-         # To start a private DNS server set ENABLE_CLUSTER_DNS and
-         # DNS_SERVER_IP/DOMAIN. This will at least provide a working
-         # DNS server for real world hostnames.
-         dns_args="--cluster-dns=8.8.8.8"
-      fi
-
-      net_plugin_args=""
-      if [[ -n "${NET_PLUGIN}" ]]; then
-        net_plugin_args="--network-plugin=${NET_PLUGIN}"
-      fi
-      
-      net_plugin_dir_args=""
-      if [[ -n "${NET_PLUGIN_DIR}" ]]; then
-        net_plugin_dir_args="--network-plugin-dir=${NET_PLUGIN_DIR}"
-      fi
-
-      kubenet_plugin_args=""
-      if [[ "${NET_PLUGIN}" == "kubenet" ]]; then
-        kubenet_plugin_args="--reconcile-cidr=true "
-      fi
-
-      container_runtime_endpoint_args=""
-      if [[ -n "${CONTAINER_RUNTIME_ENDPOINT}" ]]; then
-        container_runtime_endpoint_args="--container-runtime-endpoint=${CONTAINER_RUNTIME_ENDPOINT}"
-      fi
-
-      image_service_endpoint_args=""
-      if [[ -n "${IMAGE_SERVICE_ENDPOINT}" ]]; then
-	image_service_endpoint_args="--image-service-endpoint=${IMAGE_SERVICE_ENDPOINT}"
-      fi
-
-      sudo -E "${GO_OUT}/hyperkube" kubelet ${priv_arg}\
-        --v=${LOG_LEVEL} \
-        --chaos-chance="${CHAOS_CHANCE}" \
-        --container-runtime="${CONTAINER_RUNTIME}" \
-        --rkt-path="${RKT_PATH}" \
-        --rkt-stage1-image="${RKT_STAGE1_IMAGE}" \
-        --hostname-override="${HOSTNAME_OVERRIDE}" \
-        --cloud-provider="${CLOUD_PROVIDER}" \
-        --cloud-config="${CLOUD_CONFIG}" \
-        --address="${KUBELET_HOST}" \
-        --api-servers="${API_HOST}:${API_PORT}" \
-        --cpu-cfs-quota=${CPU_CFS_QUOTA} \
-        --enable-controller-attach-detach="${ENABLE_CONTROLLER_ATTACH_DETACH}" \
-        ${dns_args} \
-        ${net_plugin_dir_args} \
-        ${net_plugin_args} \
-        ${kubenet_plugin_args} \
-        ${container_runtime_endpoint_args} \
-        ${image_service_endpoint_args} \
-        --port="$KUBELET_PORT" >"${KUBELET_LOG}" 2>&1 &
-      KUBELET_PID=$!
-    else
-      # Docker won't run a container with a cidfile (container id file)
-      # unless that file does not already exist; clean up an existing
-      # dockerized kubelet that might be running.
-      cleanup_dockerized_kubelet
-      cred_bind=""
-      # path to cloud credentails. 
-      cloud_cred=""
-      if [ "${CLOUD_PROVIDER}" == "aws" ]; then
-          cloud_cred="${HOME}/.aws/credentials"
-      fi
-      if [ "${CLOUD_PROVIDER}" == "gce" ]; then
-          cloud_cred="${HOME}/.config/gcloud"
-      fi
-      if [ "${CLOUD_PROVIDER}" == "openstack" ]; then
-          cloud_cred="${CLOUD_CONFIG}"
-      fi
-      if  [[ -n "${cloud_cred}" ]]; then
-          cred_bind="--volume=${cloud_cred}:${cloud_cred}:ro"
-      fi
-
-      docker run \
-        --volume=/:/rootfs:ro \
-        --volume=/var/run:/var/run:rw \
-        --volume=/sys:/sys:ro \
-        --volume=/var/lib/docker/:/var/lib/docker:ro \
-        --volume=/var/lib/kubelet/:/var/lib/kubelet:rw,z \
-        --volume=/dev:/dev \
-        ${cred_bind} \
-        --net=host \
-        --privileged=true \
-        -i \
-        --cidfile=$KUBELET_CIDFILE \
-        gcr.io/google_containers/kubelet \
-        /kubelet --v=${LOG_LEVEL} --containerized ${priv_arg}--chaos-chance="${CHAOS_CHANCE}" --hostname-override="${HOSTNAME_OVERRIDE}" --cloud-provider="${CLOUD_PROVIDER}" --cloud-config="${CLOUD_CONFIG}" \ --address="127.0.0.1" --api-servers="${API_HOST}:${API_PORT}" --port="$KUBELET_PORT"  --enable-controller-attach-detach="${ENABLE_CONTROLLER_ATTACH_DETACH}" &> $KUBELET_LOG &
-    fi
-}
-
-function start_kubeproxy {
-    PROXY_LOG=/tmp/kube-proxy.log
-    sudo -E "${GO_OUT}/hyperkube" proxy \
-      --v=${LOG_LEVEL} \
-      --hostname-override="${HOSTNAME_OVERRIDE}" \
-      --master="http://${API_HOST}:${API_PORT}" >"${PROXY_LOG}" 2>&1 &
-    PROXY_PID=$!
-
+function start_scheduler {
     SCHEDULER_LOG=/tmp/kube-scheduler.log
-    sudo -E "${GO_OUT}/hyperkube" scheduler \
-      --v=${LOG_LEVEL} \
-      --master="http://${API_HOST}:${API_PORT}" >"${SCHEDULER_LOG}" 2>&1 &
-    SCHEDULER_PID=$!
+
+    dns_args=""
+    if [[ "${ENABLE_CLUSTER_DNS}" = true ]]; then
+		dns_args=" --cluster-dns=${DNS_SERVER_IP} --cluster-domain=${DNS_DOMAIN} "
+	fi
+
+    sudo -E "${GO_OUT}/km" scheduler \
+	  --mesos-master=${MESOS_MASTER} \
+	  --etcd-servers="http://${ETCD_HOST}:${ETCD_PORT}" \
+	  --mesos-user=root \
+	  $dns_args \
+	  --v=${LOG_LEVEL} \
+	  --api-servers="http://${API_HOST}:${API_PORT}" >"${SCHEDULER_LOG}" 2>&1 &
+	  SCHEDULER_PID=$!
 }
 
 function start_kubedns {
-
     if [[ "${ENABLE_CLUSTER_DNS}" = true ]]; then
         echo "Creating kube-system namespace"
         sed -e "s/{{ pillar\['dns_replicas'\] }}/${DNS_REPLICAS}/g;s/{{ pillar\['dns_domain'\] }}/${DNS_DOMAIN}/g;" "${KUBE_ROOT}/cluster/addons/dns/skydns-rc.yaml.in" >| skydns-rc.yaml
@@ -504,32 +366,9 @@ EOF
         ${KUBECTL} --namespace=kube-system create -f skydns-svc.yaml
         echo "Kube-dns rc and service successfully deployed."
     fi
-
 }
 
 function print_success {
-if [[ "${START_MODE}" != "kubeletonly" ]]; then
-  cat <<EOF
-Local Kubernetes cluster is running. Press Ctrl-C to shut it down.
-
-Logs:
-  ${APISERVER_LOG:-}
-  ${CTLRMGR_LOG:-}
-  ${PROXY_LOG:-}
-  ${SCHEDULER_LOG:-}
-EOF
-fi
-
-if [[ "${START_MODE}" == "all" ]]; then
-  echo "  ${KUBELET_LOG}"
-elif [[ "${START_MODE}" == "nokubelet" ]]; then
-  echo
-  echo "No kubelet was started because you set START_MODE=nokubelet"
-  echo "Run this script again with START_MODE=kubeletonly to run a kubelet"
-fi
-
-if [[ "${START_MODE}" != "kubeletonly" ]]; then
-  echo
   cat <<EOF
 To start using your cluster, open up another terminal/tab and run:
 
@@ -540,22 +379,10 @@ To start using your cluster, open up another terminal/tab and run:
   cluster/kubectl.sh config use-context local
   cluster/kubectl.sh
 EOF
-else 
-  cat <<EOF
-The kubelet was started.
-
-Logs:
-  ${KUBELET_LOG}
-EOF
-fi
 }
 
 test_docker
-
-if [[ "${START_MODE}" != "kubeletonly" ]]; then
-  test_apiserver_off
-fi
-
+test_apiserver_off
 test_openssl_installed
 
 ### IF the user didn't supply an output/ for the build... Then we detect.
@@ -564,24 +391,19 @@ if [ "$GO_OUT" == "" ]; then
 fi
 echo "Detected host and ready to start services.  Doing some housekeeping first..."
 echo "Using GO_OUT $GO_OUT"
-KUBELET_CIDFILE=/tmp/kubelet.cid
+
 if [[ "${ENABLE_DAEMON}" = false ]]; then
 trap cleanup EXIT
 fi
 
 echo "Starting services now!"
-if [[ "${START_MODE}" != "kubeletonly" ]]; then
-  start_etcd
-  set_service_accounts
-  start_apiserver
-  start_controller_manager
-  start_kubeproxy
-  start_kubedns
-fi
 
-if [[ "${START_MODE}" != "nokubelet" ]]; then
-  start_kubelet
-fi  
+start_etcd
+set_service_accounts
+start_apiserver
+start_controller_manager
+start_scheduler
+start_kubedns
 
 print_success
 
