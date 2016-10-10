@@ -18,7 +18,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-IMAGE_REPO=${IMAGE_REPO:-mesosphere/kubernetes-mesos-test}
+IMAGE_REPO=${IMAGE_REPO:-k82cn/kubernetes-mesos-test}
 IMAGE_TAG=${IMAGE_TAG:-latest}
 
 script_dir=$(cd $(dirname "${BASH_SOURCE}") && pwd -P)

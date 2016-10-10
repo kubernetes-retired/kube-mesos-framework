@@ -29,6 +29,6 @@ set -o errtrace
 
 TEST_ARGS="$@"
 
-KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/../../.." && pwd)
+KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)
 
 "${KUBE_ROOT}/ci/run-with-cluster.sh" ./cluster/test-e2e.sh ${TEST_ARGS}

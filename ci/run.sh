@@ -30,7 +30,7 @@ set -o errtrace
 RUN_CMD="$@"
 [ -z "${RUN_CMD:-}" ] && echo "No command supplied" && exit 1
 
-KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/../../.." && pwd)
+KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)
 
 echo "Detecting docker client"
 # Mount docker client binary to avoid client/compose/daemon version conflicts
@@ -52,5 +52,5 @@ exec docker run \
   -e "KUBERNETES_CONTRIB=mesos" \
   -e "USER=root" \
   -t $(tty &>/dev/null && echo "-i") \
-  mesosphere/kubernetes-mesos-test \
+  k82cn/kubernetes-mesos-test \
   -ceux "${RUN_CMD}"
