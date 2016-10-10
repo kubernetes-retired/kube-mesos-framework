@@ -48,7 +48,6 @@ exec docker run \
   --rm \
   -v "${KUBE_ROOT}:/go/src/github.com/GoogleCloudPlatform/kubernetes" \
   -v "/var/run/docker.sock:/var/run/docker.sock" \
-  -v "${DOCKER_BIN_PATH}:/usr/bin/docker" \
   -e "KUBERNETES_CONTRIB=mesos" \
   -e "USER=root" \
   -t $(tty &>/dev/null && echo "-i") \
