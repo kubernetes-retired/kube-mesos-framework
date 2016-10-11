@@ -36,7 +36,7 @@ KUBERNETES_PROVIDER="mesos/docker"
 
 MESOS_DOCKER_WORK_DIR="${MESOS_DOCKER_WORK_DIR:-${HOME}/tmp/kubernetes}"
 
-KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/../../.." && pwd)
+KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)
 
 # Clean (test artifacts)
 echo "Cleaning work dir"
@@ -60,7 +60,6 @@ docker run \
   --rm \
   -v "${KUBE_ROOT}:/go/src/github.com/GoogleCloudPlatform/kubernetes" \
   -v "/var/run/docker.sock:/var/run/docker.sock" \
-  -v "${DOCKER_BIN_PATH}:/usr/bin/docker" \
   -v "${MESOS_DOCKER_WORK_DIR}/auth:${MESOS_DOCKER_WORK_DIR}/auth" \
   -v "${MESOS_DOCKER_WORK_DIR}/log:${MESOS_DOCKER_WORK_DIR}/log" \
   -v "${MESOS_DOCKER_WORK_DIR}/mesosslave1/mesos:${MESOS_DOCKER_WORK_DIR}/mesosslave1/mesos" \
@@ -76,7 +75,7 @@ docker run \
   -e "USER=root" \
   -e "E2E_REPORT_DIR=${MESOS_DOCKER_WORK_DIR}/reports" \
   -t $(tty &>/dev/null && echo "-i") \
-  mesosphere/kubernetes-mesos-test \
+  k82cn/kubernetes-mesos-test \
   -ceux "\
     make clean all && \
     trap 'timeout 5m ./cluster/kube-down.sh' EXIT && \
