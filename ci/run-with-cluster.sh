@@ -77,7 +77,6 @@ docker run \
   -t $(tty &>/dev/null && echo "-i") \
   k82cn/kubernetes-mesos-test \
   -ceux "\
-    make clean all && \
     trap 'timeout 5m ./cluster/kube-down.sh' EXIT && \
     ./cluster/kube-down.sh && \
     ./cluster/kube-up.sh && \
