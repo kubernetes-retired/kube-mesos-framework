@@ -99,7 +99,7 @@ function cluster::mesos::docker::run_in_docker_test {
     --link docker_mesosmaster1_1:mesosmaster1 \
     --link docker_apiserver_1:apiserver \
     --entrypoint="${entrypoint}" \
-    mesosphere/kubernetes-mesos-test \
+    k82cn/kubernetes-mesos-test \
     ${args}
 
   return "$?"
