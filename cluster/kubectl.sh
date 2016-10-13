@@ -85,11 +85,13 @@ esac
 # to find the latest one.
 if [[ -z "${KUBECTL_PATH:-}" ]]; then
   locations=(
+    "/usr/local/bin/kubectl"
     "${KUBE_ROOT}/_output/bin/kubectl"
     "${KUBE_ROOT}/_output/dockerized/bin/${host_os}/${host_arch}/kubectl"
     "${KUBE_ROOT}/_output/local/bin/${host_os}/${host_arch}/kubectl"
     "${KUBE_ROOT}/platforms/${host_os}/${host_arch}/kubectl"
   )
+
   kubectl=$( (ls -t "${locations[@]}" 2>/dev/null || true) | head -1 )
 
   if [[ ! -x "$kubectl" ]]; then
