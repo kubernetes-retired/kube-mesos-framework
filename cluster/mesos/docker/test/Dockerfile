@@ -59,6 +59,4 @@ WORKDIR /go/src/github.com/GoogleCloudPlatform/kubernetes
 
 COPY ./bin/* /usr/local/bin/
 
-RUN install-etcd.sh
-
 ENTRYPOINT [ "bash" ]

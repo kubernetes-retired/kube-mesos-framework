@@ -41,4 +41,4 @@ echo "Downloading etcd (${archive_url})..."
 curl -s -L ${archive_url} | tar xvz
 
 echo "Installing etcd (/usr/local/bin/etcd)..."
-mv ./${full_name}/etcd* /usr/local/bin/
+mv ./${full_name}/etcd* $(dirname $BASH_SOURCE)
