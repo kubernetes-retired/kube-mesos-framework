@@ -30,8 +30,7 @@ source "${KUBE_ROOT}/cluster/${KUBERNETES_PROVIDER}/${KUBE_CONFIG_FILE-"config-d
 kubectl="${KUBE_ROOT}/cluster/kubectl.sh"
 bin="$(cd "$(dirname "${BASH_SOURCE}")" && pwd -P)"
 
-# create the kube-system and static-pods namespaces
-"${kubectl}" create -f "${KUBE_ROOT}/cluster/mesos/docker/kube-system-ns.yaml"
+# create the static-pods namespaces
 "${kubectl}" create -f "${KUBE_ROOT}/cluster/mesos/docker/static-pods-ns.yaml"
 
 if [ "${ENABLE_CLUSTER_DNS}" == "true" ]; then

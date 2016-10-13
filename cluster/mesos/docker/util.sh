@@ -262,7 +262,7 @@ function kube-up {
     echo "Building Docker images" 1>&2
     # TODO: version images (k8s version, git sha, and dirty state) to avoid re-building them every time.
     "${provider_root}/km/build.sh"
-    "${provider_root}/test/build.sh"
+    # "${provider_root}/test/build.sh"
   fi
 
   cluster::mesos::docker::init_auth
