@@ -74,6 +74,7 @@ type MinionServer struct {
 	proxyBindall                   bool
 	proxyMode                      string
 	conntrackMax                   int
+	conntrackMaxPerCore            int
 	conntrackTCPTimeoutEstablished int
 }
 
@@ -149,6 +150,7 @@ func (ms *MinionServer) launchProxyServer() {
 		"--resource-container=", // disable this; mesos slave doesn't like sub-containers yet
 		"--proxy-mode=" + ms.proxyMode,
 		"--conntrack-max=" + strconv.Itoa(ms.conntrackMax),
+		"--conntrack-max-per-core=" + strconv.Itoa(ms.conntrackMaxPerCore),
 		"--conntrack-tcp-timeout-established=" + strconv.Itoa(ms.conntrackTCPTimeoutEstablished),
 	}
 	if ms.proxyKubeconfig != "" {
@@ -377,5 +379,7 @@ func (ms *MinionServer) AddMinionFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&ms.proxyBindall, "proxy-bindall", ms.proxyBindall, "When true will cause kube-proxy to bind to 0.0.0.0.")
 	fs.StringVar(&ms.proxyMode, "proxy-mode", ms.proxyMode, "Which proxy mode to use: 'userspace' (older) or 'iptables' (faster). If the iptables proxy is selected, regardless of how, but the system's kernel or iptables versions are insufficient, this always falls back to the userspace proxy.")
 	fs.IntVar(&ms.conntrackMax, "conntrack-max", ms.conntrackMax, "Maximum number of NAT connections to track on agent nodes (0 to leave as-is)")
+	fs.IntVar(&ms.conntrackMaxPerCore, "conntrack-max-per-core", ms.conntrackMaxPerCore,
+		"Maximum number of NAT connections to track per CPU core (0 to leave as-is). This is only considered if conntrack-max is 0.")
 	fs.IntVar(&ms.conntrackTCPTimeoutEstablished, "conntrack-tcp-timeout-established", ms.conntrackTCPTimeoutEstablished, "Idle timeout for established TCP connections on agent nodes (0 to leave as-is)")
 }
