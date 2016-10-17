@@ -30,6 +30,6 @@ This project combines concepts and technologies from two already-complex project
 
 To get up and running with Kubernetes-Mesos, follow:
 
-- the [Getting started guide](../../docs/getting-started-guides/mesos.md) to launch a Kubernetes-Mesos cluster,
+- the [Getting started guide](./docs/getting-started-guides/mesos.md) to launch a Kubernetes-Mesos cluster,
 
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/contrib/mesos/README.md?pixel)]()
