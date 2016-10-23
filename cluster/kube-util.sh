@@ -25,7 +25,7 @@ source "${KUBE_ROOT}/cluster/skeleton/util.sh"
 if [[ -n "${KUBERNETES_CONFORMANCE_TEST:-}" ]]; then
     KUBERNETES_PROVIDER=""
 else
-    KUBERNETES_PROVIDER="${KUBERNETES_PROVIDER:-gce}"
+    KUBERNETES_PROVIDER="${KUBERNETES_PROVIDER:-mesos/docker}"
 fi
 
 PROVIDER_UTILS="${KUBE_ROOT}/cluster/${KUBERNETES_PROVIDER}/util.sh"

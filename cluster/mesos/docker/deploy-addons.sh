@@ -26,7 +26,7 @@ set -o pipefail
 set -o errtrace
 
 KUBE_ROOT=$(cd "$(dirname "${BASH_SOURCE}")/../../.." && pwd)
-source "${KUBE_ROOT}/cluster/${KUBERNETES_PROVIDER}/${KUBE_CONFIG_FILE-"config-default.sh"}"
+source "${KUBE_ROOT}/cluster/mesos/docker/${KUBE_CONFIG_FILE-"config-default.sh"}"
 kubectl="${KUBE_ROOT}/cluster/kubectl.sh"
 bin="$(cd "$(dirname "${BASH_SOURCE}")" && pwd -P)"
 
