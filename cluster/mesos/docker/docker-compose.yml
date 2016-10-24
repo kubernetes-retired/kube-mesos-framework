@@ -5,12 +5,9 @@ ambassador:
   command: "-name docker_apiserver_1"
 etcd:
   hostname: etcd
-  image: quay.io/coreos/etcd:v2.2.1
+  image: quay.io/coreos/etcd:v3.0.9
   ports: [ "4001:4001" ]
-  command: >
-    --listen-client-urls 'http://etcd:4001'
-    --advertise-client-urls 'http://etcd:4001'
-    --initial-cluster-state new
+  command: "etcd --listen-client-urls 'http://etcd:4001' --advertise-client-urls 'http://etcd:4001' --initial-cluster-state new"
 mesosmaster1:
   hostname: mesosmaster1
   image: mesosphere/mesos-slave:0.28.2-2.0.27.ubuntu1404
