@@ -3,6 +3,7 @@
 ![build](https://travis-ci.org/kubernetes-incubator/kube-mesos-framework.svg?branch=master)
 
 Kubernetes-Mesos modifies Kubernetes to act as an [Apache Mesos](http://mesos.apache.org/) framework.
+This [MesosCon Asia presentation](http://sched.co/8QFB) provides a nice overview of the project and architecture.
 
 ## Features On Mesos
 
