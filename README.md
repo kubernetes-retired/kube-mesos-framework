@@ -3,7 +3,6 @@
 ![build](https://travis-ci.org/kubernetes-incubator/kube-mesos-framework.svg?branch=master)
 
 Kubernetes-Mesos modifies Kubernetes to act as an [Apache Mesos](http://mesos.apache.org/) framework.
-This [MesosCon Asia presentation](http://sched.co/8QFB) provides a nice overview of the project and architecture.
 
 ## Features On Mesos
 
@@ -21,6 +20,11 @@ For more information about how Kubernetes-Mesos is different from Kubernetes, se
 Kubernetes-Mesos is alpha quality, still under active development, and not yet recommended for production systems.
 
 For more information about development progress, see the [known issues](./docs/issues.md) where backlog issues are tracked.
+
+## Conferences
+
+* [MesosCon 2016 Asia](http://sched.co/8QFB): Kubernetes on Mesos: Not Just Another Mesos Framework - Klaus Ma, IBM
+* [KubeCon 2016](http://sched.co/8K3n): Kubernetes on EGO -- Bringing Enterprise Resource Management and Scheduling to Kubernetes - Da Ma, IBM
 
 ## Usage
 
