@@ -2,4 +2,4 @@
 
 ## Organizations using kube-mesos-framework
 
-* [IBM Spectrum Conductor for container](https://hub.docker.com/r/ibmcom/cfc-installer/)
+* [IBM Spectrum Conductor for Container](https://www.ibm.com/developerworks/community/wikis/home?lang=en#!/wiki/W1559b1be149d_43b0_881e_9783f38faaff)
