@@ -50,14 +50,9 @@ type controller struct {
 	started   chan<- struct{} // startup latch
 }
 
-func New(client *clientset.Clientset,
-	algorithm algorithm.SchedulerAlgorithm,
-	recorder record.EventRecorder,
-	nextPod func() *api.Pod,
-	error func(pod *api.Pod, schedulingErr error),
-	binder binder.Binder,
-	started chan<- struct{},
-) Controller {
+func New(client *clientset.Clientset, algorithm algorithm.SchedulerAlgorithm,
+	recorder record.EventRecorder, nextPod func() *api.Pod, error func(pod *api.Pod, schedulingErr error),
+	binder binder.Binder, started chan<- struct{}) Controller {
 	return &controller{
 		algorithm: algorithm,
 		binder:    binder,
