@@ -108,7 +108,7 @@ WRAP:
 	for 1<<uint(t.Hour())&s.Hour == 0 {
 		if !added {
 			added = true
-			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+			t = t.Truncate(time.Hour)
 		}
 		t = t.Add(1 * time.Hour)
 

@@ -16,6 +16,8 @@ limitations under the License.
 
 package volume
 
+import "errors"
+
 var _ MetricsProvider = &MetricsNil{}
 
 // MetricsNil represents a MetricsProvider that does not support returning
@@ -26,5 +28,5 @@ type MetricsNil struct{}
 // GetMetrics returns an empty Metrics and an error.
 // See MetricsProvider.GetMetrics
 func (*MetricsNil) GetMetrics() (*Metrics, error) {
-	return &Metrics{}, NewNotSupportedError()
+	return &Metrics{}, errors.New("metrics are not supported for MetricsNil Volumes")
 }

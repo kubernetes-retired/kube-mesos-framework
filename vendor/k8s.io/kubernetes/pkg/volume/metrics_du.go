@@ -17,6 +17,9 @@ limitations under the License.
 package volume
 
 import (
+	"errors"
+	"fmt"
+
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/volume/util"
 )
@@ -42,7 +45,7 @@ func NewMetricsDu(path string) MetricsProvider {
 func (md *metricsDu) GetMetrics() (*Metrics, error) {
 	metrics := &Metrics{}
 	if md.path == "" {
-		return metrics, NewNoPathDefinedError()
+		return metrics, errors.New("no path defined for disk usage metrics.")
 	}
 
 	err := md.runDu(metrics)
@@ -73,7 +76,7 @@ func (md *metricsDu) runDu(metrics *Metrics) error {
 func (md *metricsDu) getFsInfo(metrics *Metrics) error {
 	available, capacity, _, err := util.FsInfo(md.path)
 	if err != nil {
-		return NewFsInfoFailedError(err)
+		return fmt.Errorf("Failed to get FsInfo due to error %v", err)
 	}
 	metrics.Available = resource.NewQuantity(available, resource.BinarySI)
 	metrics.Capacity = resource.NewQuantity(capacity, resource.BinarySI)

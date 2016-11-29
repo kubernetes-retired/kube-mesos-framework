@@ -23,8 +23,8 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/apis/apps"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/record"
+	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
 
 	"github.com/golang/glog"
@@ -159,20 +159,22 @@ type petClient interface {
 
 // apiServerPetClient is a petset aware Kubernetes client.
 type apiServerPetClient struct {
-	c        internalclientset.Interface
+	c        *client.Client
 	recorder record.EventRecorder
 	petHealthChecker
 }
 
 // Get gets the pet in the pcb from the apiserver.
 func (p *apiServerPetClient) Get(pet *pcb) (*pcb, bool, error) {
+	found := true
 	ns := pet.parent.Namespace
-	pod, err := p.c.Core().Pods(ns).Get(pet.pod.Name)
+	pod, err := podClient(p.c, ns).Get(pet.pod.Name)
 	if errors.IsNotFound(err) {
-		return nil, false, nil
+		found = false
+		err = nil
 	}
-	if err != nil {
-		return nil, false, err
+	if err != nil || !found {
+		return nil, found, err
 	}
 	realPet := *pet
 	realPet.pod = pod
@@ -181,7 +183,7 @@ func (p *apiServerPetClient) Get(pet *pcb) (*pcb, bool, error) {
 
 // Delete deletes the pet in the pcb from the apiserver.
 func (p *apiServerPetClient) Delete(pet *pcb) error {
-	err := p.c.Core().Pods(pet.parent.Namespace).Delete(pet.pod.Name, nil)
+	err := podClient(p.c, pet.parent.Namespace).Delete(pet.pod.Name, nil)
 	if errors.IsNotFound(err) {
 		err = nil
 	}
@@ -191,32 +193,29 @@ func (p *apiServerPetClient) Delete(pet *pcb) error {
 
 // Create creates the pet in the pcb.
 func (p *apiServerPetClient) Create(pet *pcb) error {
-	_, err := p.c.Core().Pods(pet.parent.Namespace).Create(pet.pod)
+	_, err := podClient(p.c, pet.parent.Namespace).Create(pet.pod)
 	p.event(pet.parent, "Create", fmt.Sprintf("pet: %v", pet.pod.Name), err)
 	return err
 }
 
 // Update updates the pet in the 'pet' pcb to match the pet in the 'expectedPet' pcb.
-// If the pod object of a pet which to be updated has been changed in server side, we
-// will get the actual value and set pet identity before retries.
 func (p *apiServerPetClient) Update(pet *pcb, expectedPet *pcb) (updateErr error) {
-	pc := p.c.Core().Pods(pet.parent.Namespace)
+	var getErr error
+	pc := podClient(p.c, pet.parent.Namespace)
 
-	for i := 0; ; i++ {
-		updatePod, needsUpdate, err := copyPetID(pet, expectedPet)
-		if err != nil || !needsUpdate {
-			return err
-		}
-		glog.Infof("Resetting pet %v/%v to match PetSet %v spec", pet.pod.Namespace, pet.pod.Name, pet.parent.Name)
-		_, updateErr = pc.Update(&updatePod)
+	pod, needsUpdate, err := copyPetID(pet, expectedPet)
+	if err != nil || !needsUpdate {
+		return err
+	}
+	glog.Infof("Resetting pet %v to match PetSet %v spec", pod.Name, pet.parent.Name)
+	for i, p := 0, &pod; ; i++ {
+		_, updateErr = pc.Update(p)
 		if updateErr == nil || i >= updateRetries {
 			return updateErr
 		}
-		getPod, getErr := pc.Get(updatePod.Name)
-		if getErr != nil {
+		if p, getErr = pc.Get(pod.Name); getErr != nil {
 			return getErr
 		}
-		pet.pod = getPod
 	}
 }
 
@@ -226,37 +225,44 @@ func (p *apiServerPetClient) DeletePVCs(pet *pcb) error {
 	return nil
 }
 
-func (p *apiServerPetClient) getPVC(pvcName, pvcNamespace string) (*api.PersistentVolumeClaim, error) {
-	pvc, err := p.c.Core().PersistentVolumeClaims(pvcNamespace).Get(pvcName)
-	return pvc, err
+func (p *apiServerPetClient) getPVC(pvcName, pvcNamespace string) (*api.PersistentVolumeClaim, bool, error) {
+	found := true
+	pvc, err := claimClient(p.c, pvcNamespace).Get(pvcName)
+	if errors.IsNotFound(err) {
+		found = false
+	}
+	if !found {
+		return nil, found, nil
+	} else if err != nil {
+		return nil, found, err
+	}
+	return pvc, true, nil
 }
 
 func (p *apiServerPetClient) createPVC(pvc *api.PersistentVolumeClaim) error {
-	_, err := p.c.Core().PersistentVolumeClaims(pvc.Namespace).Create(pvc)
+	_, err := claimClient(p.c, pvc.Namespace).Create(pvc)
 	return err
 }
 
 // SyncPVCs syncs pvcs in the given pcb.
 func (p *apiServerPetClient) SyncPVCs(pet *pcb) error {
-	errmsg := ""
+	errMsg := ""
 	// Create new claims.
 	for i, pvc := range pet.pvcs {
-		_, err := p.getPVC(pvc.Name, pet.parent.Namespace)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				var err error
-				if err = p.createPVC(&pet.pvcs[i]); err != nil {
-					errmsg += fmt.Sprintf("Failed to create %v: %v", pvc.Name, err)
-				}
-				p.event(pet.parent, "Create", fmt.Sprintf("pvc: %v", pvc.Name), err)
-			} else {
-				errmsg += fmt.Sprintf("Error trying to get pvc %v, %v.", pvc.Name, err)
+		_, exists, err := p.getPVC(pvc.Name, pet.parent.Namespace)
+		if !exists {
+			var err error
+			if err = p.createPVC(&pet.pvcs[i]); err != nil {
+				errMsg += fmt.Sprintf("Failed to create %v: %v", pvc.Name, err)
 			}
+			p.event(pet.parent, "Create", fmt.Sprintf("pvc: %v", pvc.Name), err)
+		} else if err != nil {
+			errMsg += fmt.Sprintf("Error trying to get pvc %v, %v.", pvc.Name, err)
 		}
 		// TODO: Check resource requirements and accessmodes, update if necessary
 	}
-	if len(errmsg) != 0 {
-		return fmt.Errorf("%v", errmsg)
+	if len(errMsg) != 0 {
+		return fmt.Errorf("%v", errMsg)
 	}
 	return nil
 }

@@ -193,6 +193,7 @@ type actualStateOfWorld struct {
 	// The key in this map is the name of the volume and the value is an object
 	// containing more information about the attached volume.
 	attachedVolumes map[api.UniqueVolumeName]attachedVolume
+
 	// volumePluginMgr is the volume plugin manager used to create volume
 	// plugin objects.
 	volumePluginMgr *volume.VolumePluginMgr
@@ -366,8 +367,14 @@ func (asw *actualStateOfWorld) addVolume(
 			globallyMounted:    false,
 			devicePath:         devicePath,
 		}
-		asw.attachedVolumes[volumeName] = volumeObj
+	} else {
+		// If volume object already exists, update the fields such as device path
+		volumeObj.devicePath = devicePath
+		glog.V(2).Infof("Volume %q is already added to attachedVolume list, update device path %q",
+			volumeName,
+			devicePath)
 	}
+	asw.attachedVolumes[volumeName] = volumeObj
 
 	return nil
 }

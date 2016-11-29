@@ -129,12 +129,6 @@ type Provisioner interface {
 type Deleter interface {
 	Volume
 	// This method should block until completion.
-	// deletedVolumeInUseError returned from this function will not be reported
-	// as error and it will be sent as "Info" event to the PV being deleted. The
-	// volume controller will retry deleting the volume in the next periodic
-	// sync. This can be used to postpone deletion of a volume that is being
-	// dettached from a node. Deletion of such volume would fail anyway and such
-	// error would confuse users.
 	Delete() error
 }
 
@@ -144,6 +138,11 @@ type Attacher interface {
 	// On success, returns the device path where the device was attached on the
 	// node.
 	Attach(spec *Spec, hostName string) (string, error)
+
+	// VolumesAreAttached checks whether the list of volumes still attached to the specified
+	// the node. It returns a map which maps from the volume spec to the checking result.
+	// If an error is occured during checking, the error will be returned
+	VolumesAreAttached(specs []*Spec, nodeName string) (map[*Spec]bool, error)
 
 	// WaitForAttach blocks until the device is attached to this
 	// node. If it successfully attaches, the path to the device
@@ -175,31 +174,6 @@ type Detacher interface {
 	// should only be called once all bind mounts have been
 	// unmounted.
 	UnmountDevice(deviceMountPath string) error
-}
-
-// NewDeletedVolumeInUseError returns a new instance of DeletedVolumeInUseError
-// error.
-func NewDeletedVolumeInUseError(message string) error {
-	return deletedVolumeInUseError(message)
-}
-
-type deletedVolumeInUseError string
-
-var _ error = deletedVolumeInUseError("")
-
-// IsDeletedVolumeInUse returns true if an error returned from Delete() is
-// deletedVolumeInUseError
-func IsDeletedVolumeInUse(err error) bool {
-	switch err.(type) {
-	case deletedVolumeInUseError:
-		return true
-	default:
-		return false
-	}
-}
-
-func (err deletedVolumeInUseError) Error() string {
-	return string(err)
 }
 
 func RenameDirectory(oldPath, newName string) (string, error) {

@@ -17,12 +17,13 @@ limitations under the License.
 package scheduledjob
 
 import (
+	"fmt"
 	"sync"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/batch"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/record"
+	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/labels"
 )
 
@@ -34,7 +35,7 @@ type sjControlInterface interface {
 
 // realSJControl is the default implementation of sjControlInterface.
 type realSJControl struct {
-	KubeClient clientset.Interface
+	KubeClient *client.Client
 }
 
 var _ sjControlInterface = &realSJControl{}
@@ -73,7 +74,7 @@ type jobControlInterface interface {
 
 // realJobControl is the default implementation of jobControlInterface.
 type realJobControl struct {
-	KubeClient clientset.Interface
+	KubeClient *client.Client
 	Recorder   record.EventRecorder
 }
 
@@ -127,6 +128,7 @@ func (f *fakeJobControl) CreateJob(namespace string, job *batch.Job) (*batch.Job
 	if f.Err != nil {
 		return nil, f.Err
 	}
+	job.SelfLink = fmt.Sprintf("/api/batch/v1/namespaces/%s/jobs/%s", namespace, job.Name)
 	f.Jobs = append(f.Jobs, *job)
 	job.UID = "test-uid"
 	return job, nil
@@ -182,18 +184,18 @@ type podControlInterface interface {
 
 // realPodControl is the default implementation of podControlInterface.
 type realPodControl struct {
-	KubeClient clientset.Interface
+	KubeClient *client.Client
 	Recorder   record.EventRecorder
 }
 
 var _ podControlInterface = &realPodControl{}
 
 func (r realPodControl) ListPods(namespace string, opts api.ListOptions) (*api.PodList, error) {
-	return r.KubeClient.Core().Pods(namespace).List(opts)
+	return r.KubeClient.Pods(namespace).List(opts)
 }
 
 func (r realPodControl) DeletePod(namespace string, name string) error {
-	return r.KubeClient.Core().Pods(namespace).Delete(name, nil)
+	return r.KubeClient.Pods(namespace).Delete(name, nil)
 }
 
 type fakePodControl struct {

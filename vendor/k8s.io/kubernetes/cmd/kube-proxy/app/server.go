@@ -315,12 +315,22 @@ func (s *ProxyServer) Run() error {
 				// administrator should decide whether and how to handle this issue,
 				// whether to drain the node and restart docker.
 				// TODO(random-liu): Remove this when the docker bug is fixed.
-				const message = "DOCKER RESTART NEEDED (docker issue #24000): /sys is read-only: can't raise conntrack limits, problems may arise later."
+				const message = "DOCKER RESTART NEEDED (docker issue #24000): /sys is read-only: " +
+					"cannot modify conntrack limits, problems may arise later."
 				s.Recorder.Eventf(s.Config.NodeRef, api.EventTypeWarning, err.Error(), message)
 			}
 		}
+
 		if s.Config.ConntrackTCPEstablishedTimeout.Duration > 0 {
-			if err := s.Conntracker.SetTCPEstablishedTimeout(int(s.Config.ConntrackTCPEstablishedTimeout.Duration / time.Second)); err != nil {
+			timeout := int(s.Config.ConntrackTCPEstablishedTimeout.Duration / time.Second)
+			if err := s.Conntracker.SetTCPEstablishedTimeout(timeout); err != nil {
+				return err
+			}
+		}
+
+		if s.Config.ConntrackTCPCloseWaitTimeout.Duration > 0 {
+			timeout := int(s.Config.ConntrackTCPCloseWaitTimeout.Duration / time.Second)
+			if err := s.Conntracker.SetTCPCloseWaitTimeout(timeout); err != nil {
 				return err
 			}
 		}
@@ -335,13 +345,22 @@ func (s *ProxyServer) Run() error {
 }
 
 func getConntrackMax(config *options.ProxyServerConfig) (int, error) {
-	if config.ConntrackMax > 0 && config.ConntrackMaxPerCore > 0 {
-		return -1, fmt.Errorf("invalid config: ConntrackMax and ConntrackMaxPerCore are mutually exclusive")
-	}
 	if config.ConntrackMax > 0 {
+		if config.ConntrackMaxPerCore > 0 {
+			return -1, fmt.Errorf("invalid config: ConntrackMax and ConntrackMaxPerCore are mutually exclusive")
+		}
+		glog.V(3).Infof("getConntrackMax: using absolute conntrax-max (deprecated)")
 		return int(config.ConntrackMax), nil
-	} else if config.ConntrackMaxPerCore > 0 {
-		return (int(config.ConntrackMaxPerCore) * runtime.NumCPU()), nil
+	}
+	if config.ConntrackMaxPerCore > 0 {
+		floor := int(config.ConntrackMin)
+		scaled := int(config.ConntrackMaxPerCore) * runtime.NumCPU()
+		if scaled > floor {
+			glog.V(3).Infof("getConntrackMax: using scaled conntrax-max-per-core")
+			return scaled, nil
+		}
+		glog.V(3).Infof("getConntrackMax: using conntrax-min")
+		return floor, nil
 	}
 	return 0, nil
 }
@@ -391,6 +410,7 @@ func getProxyMode(proxyMode string, client nodeGetter, hostname string, iptver i
 }
 
 func tryIPTablesProxy(iptver iptables.IPTablesVersioner, kcompat iptables.KernelCompatTester) string {
+	var err error
 	// guaranteed false on error, error only necessary for debugging
 	useIPTablesProxy, err := iptables.CanUseIPTablesProxier(iptver, kcompat)
 	if err != nil {
@@ -401,7 +421,7 @@ func tryIPTablesProxy(iptver iptables.IPTablesVersioner, kcompat iptables.Kernel
 		return proxyModeIPTables
 	}
 	// Fallback.
-	glog.V(1).Infof("Can't use iptables proxy, using userspace proxier")
+	glog.V(1).Infof("Can't use iptables proxy, using userspace proxier: %v", err)
 	return proxyModeUserspace
 }
 

@@ -69,7 +69,9 @@ func autoConvert_v1alpha1_KubeProxyConfiguration_To_componentconfig_KubeProxyCon
 	out.UDPIdleTimeout = in.UDPIdleTimeout
 	out.ConntrackMax = in.ConntrackMax
 	out.ConntrackMaxPerCore = in.ConntrackMaxPerCore
+	out.ConntrackMin = in.ConntrackMin
 	out.ConntrackTCPEstablishedTimeout = in.ConntrackTCPEstablishedTimeout
+	out.ConntrackTCPCloseWaitTimeout = in.ConntrackTCPCloseWaitTimeout
 	return nil
 }
 
@@ -98,7 +100,9 @@ func autoConvert_componentconfig_KubeProxyConfiguration_To_v1alpha1_KubeProxyCon
 	out.UDPIdleTimeout = in.UDPIdleTimeout
 	out.ConntrackMax = in.ConntrackMax
 	out.ConntrackMaxPerCore = in.ConntrackMaxPerCore
+	out.ConntrackMin = in.ConntrackMin
 	out.ConntrackTCPEstablishedTimeout = in.ConntrackTCPEstablishedTimeout
+	out.ConntrackTCPCloseWaitTimeout = in.ConntrackTCPCloseWaitTimeout
 	return nil
 }
 
@@ -335,7 +339,6 @@ func autoConvert_v1alpha1_KubeletConfiguration_To_componentconfig_KubeletConfigu
 		return err
 	}
 	out.AllowedUnsafeSysctls = in.AllowedUnsafeSysctls
-	out.ExperimentalRuntimeIntegrationType = in.ExperimentalRuntimeIntegrationType
 	return nil
 }
 
@@ -516,7 +519,6 @@ func autoConvert_componentconfig_KubeletConfiguration_To_v1alpha1_KubeletConfigu
 		return err
 	}
 	out.AllowedUnsafeSysctls = in.AllowedUnsafeSysctls
-	out.ExperimentalRuntimeIntegrationType = in.ExperimentalRuntimeIntegrationType
 	return nil
 }
 

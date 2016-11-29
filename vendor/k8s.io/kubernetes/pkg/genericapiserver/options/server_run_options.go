@@ -17,7 +17,6 @@ limitations under the License.
 package options
 
 import (
-	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"k8s.io/kubernetes/pkg/admission"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	apiutil "k8s.io/kubernetes/pkg/api/util"
 	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/restclient"
@@ -33,12 +33,11 @@ import (
 	"k8s.io/kubernetes/pkg/util/config"
 	utilnet "k8s.io/kubernetes/pkg/util/net"
 
+	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 )
 
 const (
-	DefaultDeserializationCacheSize = 50000
-
 	// TODO: This can be tightened up. It still matches objects named watch or proxy.
 	defaultLongRunningRequestRE = "(/|^)((watch|proxy)(/|$)|(logs?|portforward|exec|attach)/?$)"
 )
@@ -71,20 +70,22 @@ type ServerRunOptions struct {
 	AuthorizationWebhookCacheUnauthorizedTTL time.Duration
 	AuthorizationRBACSuperUser               string
 
-	BasicAuthFile             string
-	BindAddress               net.IP
-	CertDirectory             string
-	ClientCAFile              string
-	CloudConfigFile           string
-	CloudProvider             string
-	CorsAllowedOriginList     []string
-	DefaultStorageMediaType   string
-	DeleteCollectionWorkers   int
+	BasicAuthFile           string
+	BindAddress             net.IP
+	CertDirectory           string
+	ClientCAFile            string
+	CloudConfigFile         string
+	CloudProvider           string
+	CorsAllowedOriginList   []string
+	DefaultStorageMediaType string
+	DeleteCollectionWorkers int
+	// Used to specify the storage version that should be used for the legacy v1 api group.
+	DeprecatedStorageVersion  string
 	AuditLogPath              string
 	AuditLogMaxAge            int
 	AuditLogMaxBackups        int
 	AuditLogMaxSize           int
-	EnableGarbageCollection   bool
+	EnableLogsSupport         bool
 	EnableProfiling           bool
 	EnableSwaggerUI           bool
 	EnableWatchCache          bool
@@ -115,7 +116,6 @@ type ServerRunOptions struct {
 	// for testing). This is not actually exposed as a flag.
 	DefaultStorageVersions string
 	TargetRAMMB            int
-	TLSCAFile              string
 	TLSCertFile            string
 	TLSPrivateKeyFile      string
 	TokenAuthFile          string
@@ -135,7 +135,7 @@ func NewServerRunOptions() *ServerRunOptions {
 		DefaultStorageMediaType:                  "application/json",
 		DefaultStorageVersions:                   registered.AllPreferredGroupVersions(),
 		DeleteCollectionWorkers:                  1,
-		EnableGarbageCollection:                  true,
+		EnableLogsSupport:                        true,
 		EnableProfiling:                          true,
 		EnableWatchCache:                         true,
 		InsecureBindAddress:                      net.ParseIP("127.0.0.1"),
@@ -155,15 +155,20 @@ func NewServerRunOptions() *ServerRunOptions {
 func (o *ServerRunOptions) WithEtcdOptions() *ServerRunOptions {
 	o.StorageConfig = storagebackend.Config{
 		Prefix: DefaultEtcdPathPrefix,
-		DeserializationCacheSize: DefaultDeserializationCacheSize,
+		// Default cache size to 0 - if unset, its size will be set based on target
+		// memory usage.
+		DeserializationCacheSize: 0,
 	}
 	return o
 }
 
 // StorageGroupsToEncodingVersion returns a map from group name to group version,
-// computed from s.StorageVersions flag.
+// computed from the s.DeprecatedStorageVersion and s.StorageVersions flags.
 func (s *ServerRunOptions) StorageGroupsToEncodingVersion() (map[string]unversioned.GroupVersion, error) {
 	storageVersionMap := map[string]unversioned.GroupVersion{}
+	if s.DeprecatedStorageVersion != "" {
+		storageVersionMap[""] = unversioned.GroupVersion{Group: apiutil.GetGroup(s.DeprecatedStorageVersion), Version: apiutil.GetVersion(s.DeprecatedStorageVersion)}
+	}
 
 	// First, get the defaults.
 	if err := mergeGroupVersionIntoMap(s.DefaultStorageVersions, storageVersionMap); err != nil {
@@ -207,22 +212,21 @@ func mergeGroupVersionIntoMap(gvList string, dest map[string]unversioned.GroupVe
 }
 
 // Returns a clientset which can be used to talk to this apiserver.
-func (s *ServerRunOptions) NewSelfClient(token string) (clientset.Interface, error) {
+func (s *ServerRunOptions) NewSelfClient() (clientset.Interface, error) {
 	clientConfig := &restclient.Config{
+		Host: net.JoinHostPort(s.InsecureBindAddress.String(), strconv.Itoa(s.InsecurePort)),
 		// Increase QPS limits. The client is currently passed to all admission plugins,
 		// and those can be throttled in case of higher load on apiserver - see #22340 and #22422
 		// for more details. Once #22422 is fixed, we may want to remove it.
 		QPS:   50,
 		Burst: 100,
 	}
-	if s.SecurePort > 0 && len(s.TLSCAFile) > 0 {
-		clientConfig.Host = "https://" + net.JoinHostPort(s.BindAddress.String(), strconv.Itoa(s.SecurePort))
-		clientConfig.CAFile = s.TLSCAFile
-		clientConfig.BearerToken = token
-	} else if s.InsecurePort > 0 {
-		clientConfig.Host = net.JoinHostPort(s.InsecureBindAddress.String(), strconv.Itoa(s.InsecurePort))
-	} else {
-		return nil, errors.New("Unable to set url for apiserver local client")
+	if len(s.DeprecatedStorageVersion) != 0 {
+		gv, err := unversioned.ParseGroupVersion(s.DeprecatedStorageVersion)
+		if err != nil {
+			glog.Fatalf("error in parsing group version: %s", err)
+		}
+		clientConfig.GroupVersion = &gv
 	}
 
 	return clientset.NewForConfig(clientConfig)
@@ -317,10 +321,6 @@ func (s *ServerRunOptions) AddUniversalFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&s.AuditLogMaxSize, "audit-log-maxsize", s.AuditLogMaxSize,
 		"The maximum size in megabytes of the audit log file before it gets rotated. Defaults to 100MB.")
 
-	fs.BoolVar(&s.EnableGarbageCollection, "enable-garbage-collector", s.EnableGarbageCollection, ""+
-		"Enables the generic garbage collector. MUST be synced with the corresponding flag "+
-		"of the kube-controller-manager.")
-
 	fs.BoolVar(&s.EnableProfiling, "profiling", s.EnableProfiling,
 		"Enable profiling via web interface host:port/debug/pprof/")
 
@@ -401,7 +401,7 @@ func (s *ServerRunOptions) AddUniversalFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&s.OIDCGroupsClaim, "oidc-groups-claim", "", ""+
 		"If provided, the name of a custom OpenID Connect claim for specifying user groups. "+
-		"The claim value is expected to be a string or array of strings. This flag is experimental, "+
+		"The claim value is expected to be an array of strings. This flag is experimental, "+
 		"please see the authentication documentation for further details.")
 
 	fs.Var(&s.RuntimeConfig, "runtime-config", ""+
@@ -434,11 +434,10 @@ func (s *ServerRunOptions) AddUniversalFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&s.StorageConfig.DeserializationCacheSize, "deserialization-cache-size", s.StorageConfig.DeserializationCacheSize,
 		"Number of deserialized json objects to cache in memory.")
 
-	deprecatedStorageVersion := ""
-	fs.StringVar(&deprecatedStorageVersion, "storage-version", deprecatedStorageVersion,
+	fs.StringVar(&s.DeprecatedStorageVersion, "storage-version", s.DeprecatedStorageVersion,
 		"DEPRECATED: the version to store the legacy v1 resources with. Defaults to server preferred.")
 	fs.MarkDeprecated("storage-version", "--storage-version is deprecated and will be removed when the v1 API "+
-		"is retired. Setting this has no effect. See --storage-versions instead.")
+		"is retired. See --storage-versions instead.")
 
 	fs.StringVar(&s.StorageVersions, "storage-versions", s.StorageVersions, ""+
 		"The per-group version to store resources in. "+
@@ -448,10 +447,6 @@ func (s *ServerRunOptions) AddUniversalFlags(fs *pflag.FlagSet) {
 		"You only need to pass the groups you wish to change from the defaults. "+
 		"It defaults to a list of preferred versions of all registered groups, "+
 		"which is derived from the KUBE_API_VERSIONS environment variable.")
-
-	fs.StringVar(&s.TLSCAFile, "tls-ca-file", s.TLSCAFile, "If set, this "+
-		"certificate authority will used for secure access from Admission "+
-		"Controllers. This must be a valid PEM-encoded CA bundle.")
 
 	fs.StringVar(&s.TLSCertFile, "tls-cert-file", s.TLSCertFile, ""+
 		"File containing x509 Certificate for HTTPS. (CA cert, if any, concatenated "+

@@ -186,7 +186,7 @@ func pollImmediateInternal(wait WaitFunc, condition ConditionFunc) error {
 func PollInfinite(interval time.Duration, condition ConditionFunc) error {
 	done := make(chan struct{})
 	defer close(done)
-	return PollUntil(interval, condition, done)
+	return WaitFor(poller(interval, 0), condition, done)
 }
 
 // PollUntil is like Poll, but it takes a stop change instead of total duration

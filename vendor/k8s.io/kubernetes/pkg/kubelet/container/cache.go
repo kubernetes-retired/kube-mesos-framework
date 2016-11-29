@@ -49,7 +49,7 @@ type data struct {
 	status *PodStatus
 	// Error got when trying to inspect the pod.
 	err error
-	// Time when the data was last modified.
+	// Time when the data was last modfied.
 	modified time.Time
 }
 

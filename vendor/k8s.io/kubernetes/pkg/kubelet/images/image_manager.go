@@ -29,29 +29,27 @@ import (
 
 // imageManager provides the functionalities for image pulling.
 type imageManager struct {
-	recorder     record.EventRecorder
-	imageService kubecontainer.ImageService
-	backOff      *flowcontrol.Backoff
+	recorder record.EventRecorder
+	runtime  kubecontainer.Runtime
+	backOff  *flowcontrol.Backoff
 	// It will check the presence of the image, and report the 'image pulling', image pulled' events correspondingly.
 	puller imagePuller
 }
 
 var _ ImageManager = &imageManager{}
 
-func NewImageManager(recorder record.EventRecorder, imageService kubecontainer.ImageService, imageBackOff *flowcontrol.Backoff, serialized bool, qps float32, burst int) ImageManager {
-	imageService = throttleImagePulling(imageService, qps, burst)
-
+func NewImageManager(recorder record.EventRecorder, runtime kubecontainer.Runtime, imageBackOff *flowcontrol.Backoff, serialized bool) ImageManager {
 	var puller imagePuller
 	if serialized {
-		puller = newSerialImagePuller(imageService)
+		puller = newSerialImagePuller(runtime)
 	} else {
-		puller = newParallelImagePuller(imageService)
+		puller = newParallelImagePuller(runtime)
 	}
 	return &imageManager{
-		recorder:     recorder,
-		imageService: imageService,
-		backOff:      imageBackOff,
-		puller:       puller,
+		recorder: recorder,
+		runtime:  runtime,
+		backOff:  imageBackOff,
+		puller:   puller,
 	}
 }
 
@@ -88,7 +86,7 @@ func (m *imageManager) EnsureImageExists(pod *api.Pod, container *api.Container,
 	}
 
 	spec := kubecontainer.ImageSpec{Image: container.Image}
-	present, err := m.imageService.IsImagePresent(spec)
+	present, err := m.runtime.IsImagePresent(spec)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to inspect image %q: %v", container.Image, err)
 		m.logIt(ref, api.EventTypeWarning, events.FailedToInspectImage, logPrefix, msg, glog.Warning)

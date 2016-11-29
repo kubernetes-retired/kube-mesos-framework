@@ -19,7 +19,6 @@ type Cron struct {
 	snapshot chan []*Entry
 	running  bool
 	ErrorLog *log.Logger
-	location *time.Location
 }
 
 // Job is an interface for submitted cron jobs.
@@ -70,13 +69,8 @@ func (s byTime) Less(i, j int) bool {
 	return s[i].Next.Before(s[j].Next)
 }
 
-// New returns a new Cron job runner, in the Local time zone.
+// New returns a new Cron job runner.
 func New() *Cron {
-	return NewWithLocation(time.Now().Location())
-}
-
-// NewWithLocation returns a new Cron job runner.
-func NewWithLocation(location *time.Location) *Cron {
 	return &Cron{
 		entries:  nil,
 		add:      make(chan *Entry),
@@ -84,7 +78,6 @@ func NewWithLocation(location *time.Location) *Cron {
 		snapshot: make(chan []*Entry),
 		running:  false,
 		ErrorLog: nil,
-		location: location,
 	}
 }
 
@@ -132,16 +125,8 @@ func (c *Cron) Entries() []*Entry {
 	return c.entrySnapshot()
 }
 
-// Location gets the time zone location
-func (c *Cron) Location() *time.Location {
-	return c.location
-}
-
-// Start the cron scheduler in its own go-routine, or no-op if already started.
+// Start the cron scheduler in its own go-routine.
 func (c *Cron) Start() {
-	if c.running {
-		return
-	}
 	c.running = true
 	go c.run()
 }
@@ -162,7 +147,7 @@ func (c *Cron) runWithRecovery(j Job) {
 // access to the 'running' state variable.
 func (c *Cron) run() {
 	// Figure out the next activation times for each entry.
-	now := time.Now().In(c.location)
+	now := time.Now().Local()
 	for _, entry := range c.entries {
 		entry.Next = entry.Schedule.Next(now)
 	}
@@ -180,9 +165,8 @@ func (c *Cron) run() {
 			effective = c.entries[0].Next
 		}
 
-		timer := time.NewTimer(effective.Sub(now))
 		select {
-		case now = <-timer.C:
+		case now = <-time.After(effective.Sub(now)):
 			// Run every entry whose next time was this effective time.
 			for _, e := range c.entries {
 				if e.Next != effective {
@@ -190,25 +174,23 @@ func (c *Cron) run() {
 				}
 				go c.runWithRecovery(e.Job)
 				e.Prev = e.Next
-				e.Next = e.Schedule.Next(now)
+				e.Next = e.Schedule.Next(effective)
 			}
 			continue
 
 		case newEntry := <-c.add:
 			c.entries = append(c.entries, newEntry)
-			newEntry.Next = newEntry.Schedule.Next(time.Now().In(c.location))
+			newEntry.Next = newEntry.Schedule.Next(time.Now().Local())
 
 		case <-c.snapshot:
 			c.snapshot <- c.entrySnapshot()
 
 		case <-c.stop:
-			timer.Stop()
 			return
 		}
 
 		// 'now' should be updated after newEntry and snapshot cases.
-		now = time.Now().In(c.location)
-		timer.Stop()
+		now = time.Now().Local()
 	}
 }
 

@@ -19,13 +19,13 @@ limitations under the License.
 package endpoint
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"time"
 
 	"encoding/json"
 
+	"github.com/golang/glog"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/endpoints"
 	"k8s.io/kubernetes/pkg/api/errors"
@@ -43,8 +43,6 @@ import (
 	"k8s.io/kubernetes/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/util/workqueue"
 	"k8s.io/kubernetes/pkg/watch"
-
-	"github.com/golang/glog"
 )
 
 const (
@@ -71,16 +69,16 @@ var (
 )
 
 // NewEndpointController returns a new *EndpointController.
-func NewEndpointController(podInformer cache.SharedIndexInformer, client clientset.Interface) *EndpointController {
+func NewEndpointController(podInformer cache.SharedIndexInformer, client *clientset.Clientset) *EndpointController {
 	if client != nil && client.Core().GetRESTClient().GetRateLimiter() != nil {
 		metrics.RegisterMetricAndTrackRateLimiterUsage("endpoint_controller", client.Core().GetRESTClient().GetRateLimiter())
 	}
 	e := &EndpointController{
 		client: client,
-		queue:  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "endpoint"),
+		queue:  workqueue.NewNamed("endpoint"),
 	}
 
-	e.serviceStore.Indexer, e.serviceController = cache.NewIndexerInformer(
+	e.serviceStore.Store, e.serviceController = cache.NewInformer(
 		&cache.ListWatch{
 			ListFunc: func(options api.ListOptions) (runtime.Object, error) {
 				return e.client.Core().Services(api.NamespaceAll).List(options)
@@ -99,7 +97,6 @@ func NewEndpointController(podInformer cache.SharedIndexInformer, client clients
 			},
 			DeleteFunc: e.enqueueService,
 		},
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 	)
 
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -125,7 +122,7 @@ func NewEndpointControllerFromClient(client *clientset.Clientset, resyncPeriod c
 
 // EndpointController manages selector-based service endpoints.
 type EndpointController struct {
-	client clientset.Interface
+	client *clientset.Clientset
 
 	serviceStore cache.StoreToServiceLister
 	podStore     cache.StoreToPodLister
@@ -142,7 +139,7 @@ type EndpointController struct {
 	// more often than services with few pods; it also would cause a
 	// service that's inserted multiple times to be processed more than
 	// necessary.
-	queue workqueue.RateLimitingInterface
+	queue *workqueue.Type
 
 	// Since we join two objects, we'll watch both of them with
 	// controllers.
@@ -157,15 +154,8 @@ type EndpointController struct {
 // endpoints will be handled in parallel.
 func (e *EndpointController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
-	defer e.queue.ShutDown()
-
 	go e.serviceController.Run(stopCh)
 	go e.podController.Run(stopCh)
-
-	if !cache.WaitForCacheSync(stopCh, e.podStoreSynced) {
-		return
-	}
-
 	for i := 0; i < workers; i++ {
 		go wait.Until(e.worker, time.Second, stopCh)
 	}
@@ -180,6 +170,7 @@ func (e *EndpointController) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
+	e.queue.ShutDown()
 }
 
 func (e *EndpointController) getPodServiceMemberships(pod *api.Pod) (sets.String, error) {
@@ -191,7 +182,7 @@ func (e *EndpointController) getPodServiceMemberships(pod *api.Pod) (sets.String
 		return set, nil
 	}
 	for i := range services {
-		key, err := keyFunc(services[i])
+		key, err := keyFunc(&services[i])
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +197,7 @@ func (e *EndpointController) addPod(obj interface{}) {
 	pod := obj.(*api.Pod)
 	services, err := e.getPodServiceMemberships(pod)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to get pod %v/%v's service memberships: %v", pod.Namespace, pod.Name, err))
+		glog.Errorf("Unable to get pod %v/%v's service memberships: %v", pod.Namespace, pod.Name, err)
 		return
 	}
 	for key := range services {
@@ -227,7 +218,7 @@ func (e *EndpointController) updatePod(old, cur interface{}) {
 	}
 	services, err := e.getPodServiceMemberships(newPod)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to get pod %v/%v's service memberships: %v", newPod.Namespace, newPod.Name, err))
+		glog.Errorf("Unable to get pod %v/%v's service memberships: %v", newPod.Namespace, newPod.Name, err)
 		return
 	}
 
@@ -236,7 +227,7 @@ func (e *EndpointController) updatePod(old, cur interface{}) {
 		!hostNameAndDomainAreEqual(newPod, oldPod) {
 		oldServices, err := e.getPodServiceMemberships(oldPod)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Unable to get pod %v/%v's service memberships: %v", oldPod.Namespace, oldPod.Name, err))
+			glog.Errorf("Unable to get pod %v/%v's service memberships: %v", oldPod.Namespace, oldPod.Name, err)
 			return
 		}
 		services = services.Union(oldServices)
@@ -283,10 +274,10 @@ func (e *EndpointController) deletePod(obj interface{}) {
 	}
 	podKey, err := keyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %#v: %v", obj, err))
+		glog.Errorf("Couldn't get key for object %#v: %v", obj, err)
 		return
 	}
-	glog.V(4).Infof("Pod %q was deleted but we don't have a record of its final state, so it will take up to %v before it will be removed from all endpoint records.", podKey, FullServiceResyncPeriod)
+	glog.Infof("Pod %q was deleted but we don't have a record of its final state, so it will take up to %v before it will be removed from all endpoint records.", podKey, FullServiceResyncPeriod)
 
 	// TODO: keep a map of pods to services to handle this condition.
 }
@@ -295,7 +286,7 @@ func (e *EndpointController) deletePod(obj interface{}) {
 func (e *EndpointController) enqueueService(obj interface{}) {
 	key, err := keyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		glog.Errorf("Couldn't get key for object %+v: %v", obj, err)
 		return
 	}
 
@@ -307,36 +298,37 @@ func (e *EndpointController) enqueueService(obj interface{}) {
 // workqueue guarantees that they will not end up processing the same service
 // at the same time.
 func (e *EndpointController) worker() {
-	for e.processNextWorkItem() {
+	for {
+		func() {
+			key, quit := e.queue.Get()
+			if quit {
+				return
+			}
+			// Use defer: in the unlikely event that there's a
+			// panic, we'd still like this to get marked done--
+			// otherwise the controller will not be able to sync
+			// this service again until it is restarted.
+			defer e.queue.Done(key)
+			e.syncService(key.(string))
+		}()
 	}
 }
 
-func (e *EndpointController) processNextWorkItem() bool {
-	eKey, quit := e.queue.Get()
-	if quit {
-		return false
-	}
-	defer e.queue.Done(eKey)
-
-	err := e.syncService(eKey.(string))
-	if err == nil {
-		e.queue.Forget(eKey)
-		return true
-	}
-
-	utilruntime.HandleError(fmt.Errorf("Sync %v failed with %v", eKey, err))
-	e.queue.AddRateLimited(eKey)
-
-	return true
-}
-
-func (e *EndpointController) syncService(key string) error {
+func (e *EndpointController) syncService(key string) {
 	startTime := time.Now()
 	defer func() {
 		glog.V(4).Infof("Finished syncing service %q endpoints. (%v)", key, time.Now().Sub(startTime))
 	}()
 
-	obj, exists, err := e.serviceStore.Indexer.GetByKey(key)
+	if !e.podStoreSynced() {
+		// Sleep so we give the pod reflector goroutine a chance to run.
+		time.Sleep(PodStoreSyncedPollPeriod)
+		glog.Infof("Waiting for pods controller to sync, requeuing service %v", key)
+		e.queue.Add(key)
+		return
+	}
+
+	obj, exists, err := e.serviceStore.Store.GetByKey(key)
 	if err != nil || !exists {
 		// Delete the corresponding endpoint, as the service has been deleted.
 		// TODO: Please note that this will delete an endpoint when a
@@ -345,22 +337,23 @@ func (e *EndpointController) syncService(key string) error {
 		// doesn't completely solve the problem. See #6877.
 		namespace, name, err := cache.SplitMetaNamespaceKey(key)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Need to delete endpoint with key %q, but couldn't understand the key: %v", key, err))
+			glog.Errorf("Need to delete endpoint with key %q, but couldn't understand the key: %v", key, err)
 			// Don't retry, as the key isn't going to magically become understandable.
-			return nil
+			return
 		}
-		err = e.client.Core().Endpoints(namespace).Delete(name, nil)
+		err = e.client.Endpoints(namespace).Delete(name, nil)
 		if err != nil && !errors.IsNotFound(err) {
-			return err
+			glog.Errorf("Error deleting endpoint %q: %v", key, err)
+			e.queue.Add(key) // Retry
 		}
-		return nil
+		return
 	}
 
 	service := obj.(*api.Service)
 	if service.Spec.Selector == nil {
 		// services without a selector receive no endpoints from this controller;
 		// these services will receive the endpoints that are created out-of-band via the REST API.
-		return nil
+		return
 	}
 
 	glog.V(5).Infof("About to update endpoints for service %q", key)
@@ -368,7 +361,9 @@ func (e *EndpointController) syncService(key string) error {
 	if err != nil {
 		// Since we're getting stuff from a local cache, it is
 		// basically impossible to get this error.
-		return err
+		glog.Errorf("Error syncing service %q: %v", key, err)
+		e.queue.Add(key) // Retry
+		return
 	}
 
 	subsets := []api.EndpointSubset{}
@@ -380,7 +375,7 @@ func (e *EndpointController) syncService(key string) error {
 		if err == nil {
 			tolerateUnreadyEndpoints = b
 		} else {
-			utilruntime.HandleError(fmt.Errorf("Failed to parse annotation %v: %v", TolerateUnreadyEndpointsAnnotation, err))
+			glog.Errorf("Failed to parse annotation %v: %v", TolerateUnreadyEndpointsAnnotation, err)
 		}
 	}
 
@@ -452,7 +447,7 @@ func (e *EndpointController) syncService(key string) error {
 	subsets = endpoints.RepackSubsets(subsets)
 
 	// See if there's actually an update here.
-	currentEndpoints, err := e.client.Core().Endpoints(service.Namespace).Get(service.Name)
+	currentEndpoints, err := e.client.Endpoints(service.Namespace).Get(service.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			currentEndpoints = &api.Endpoints{
@@ -462,7 +457,9 @@ func (e *EndpointController) syncService(key string) error {
 				},
 			}
 		} else {
-			return err
+			glog.Errorf("Error getting endpoints: %v", err)
+			e.queue.Add(key) // Retry
+			return
 		}
 	}
 
@@ -470,7 +467,9 @@ func (e *EndpointController) syncService(key string) error {
 	if len(podHostNames) > 0 {
 		b, err := json.Marshal(podHostNames)
 		if err != nil {
-			return err
+			glog.Errorf("Error updating endpoints. Marshalling of hostnames failed.: %v", err)
+			e.queue.Add(key) // Retry
+			return
 		}
 		serializedPodHostNames = string(b)
 	}
@@ -480,7 +479,7 @@ func (e *EndpointController) syncService(key string) error {
 	if reflect.DeepEqual(currentEndpoints.Subsets, subsets) &&
 		reflect.DeepEqual(currentEndpoints.Labels, service.Labels) {
 		glog.V(5).Infof("endpoints are equal for %s/%s, skipping update", service.Namespace, service.Name)
-		return nil
+		return
 	}
 	newEndpoints := currentEndpoints
 	newEndpoints.Subsets = subsets
@@ -498,10 +497,10 @@ func (e *EndpointController) syncService(key string) error {
 	createEndpoints := len(currentEndpoints.ResourceVersion) == 0
 	if createEndpoints {
 		// No previous endpoints, create them
-		_, err = e.client.Core().Endpoints(service.Namespace).Create(newEndpoints)
+		_, err = e.client.Endpoints(service.Namespace).Create(newEndpoints)
 	} else {
 		// Pre-existing
-		_, err = e.client.Core().Endpoints(service.Namespace).Update(newEndpoints)
+		_, err = e.client.Endpoints(service.Namespace).Update(newEndpoints)
 	}
 	if err != nil {
 		if createEndpoints && errors.IsForbidden(err) {
@@ -510,10 +509,11 @@ func (e *EndpointController) syncService(key string) error {
 			// 2. policy is misconfigured, in which case no service would function anywhere.
 			// Given the frequency of 1, we log at a lower level.
 			glog.V(5).Infof("Forbidden from creating endpoints: %v", err)
+		} else {
+			utilruntime.HandleError(err)
 		}
-		return err
+		e.queue.Add(key) // Retry
 	}
-	return nil
 }
 
 // checkLeftoverEndpoints lists all currently existing endpoints and adds their
@@ -523,16 +523,16 @@ func (e *EndpointController) syncService(key string) error {
 // some stragglers could have been left behind if the endpoint controller
 // reboots).
 func (e *EndpointController) checkLeftoverEndpoints() {
-	list, err := e.client.Core().Endpoints(api.NamespaceAll).List(api.ListOptions{})
+	list, err := e.client.Endpoints(api.NamespaceAll).List(api.ListOptions{})
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to list endpoints (%v); orphaned endpoints will not be cleaned up. (They're pretty harmless, but you can restart this component if you want another attempt made.)", err))
+		glog.Errorf("Unable to list endpoints (%v); orphaned endpoints will not be cleaned up. (They're pretty harmless, but you can restart this component if you want another attempt made.)", err)
 		return
 	}
 	for i := range list.Items {
 		ep := &list.Items[i]
 		key, err := keyFunc(ep)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Unable to get key for endpoint %#v", ep))
+			glog.Errorf("Unable to get key for endpoint %#v", ep)
 			continue
 		}
 		e.queue.Add(key)

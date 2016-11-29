@@ -2086,13 +2086,9 @@ type NodeDaemonEndpoints struct {
 
 // NodeSystemInfo is a set of ids/uuids to uniquely identify the node.
 type NodeSystemInfo struct {
-	// MachineID reported by the node. For unique machine identification
-	// in the cluster this field is prefered. Learn more from man(5)
-	// machine-id: http://man7.org/linux/man-pages/man5/machine-id.5.html
+	// Machine ID reported by the node.
 	MachineID string `json:"machineID"`
-	// SystemUUID reported by the node. For unique machine identification
-	// MachineID is prefered. This field is specific to Red Hat hosts
-	// https://access.redhat.com/documentation/en-US/Red_Hat_Subscription_Management/1/html/RHSM/getting-system-uuid.html
+	// System UUID reported by the node.
 	SystemUUID string `json:"systemUUID"`
 	// Boot ID reported by the node.
 	BootID string `json:"bootID"`

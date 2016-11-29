@@ -151,13 +151,11 @@ func newFakePetClient() *fakePetClient {
 }
 
 type fakePetClient struct {
-	pets          []*pcb
-	claims        []api.PersistentVolumeClaim
-	petsCreated   int
-	petsDeleted   int
-	claimsCreated int
-	claimsDeleted int
-	recorder      record.EventRecorder
+	pets                         []*pcb
+	claims                       []api.PersistentVolumeClaim
+	petsCreated, petsDeleted     int
+	claimsCreated, claimsDeleted int
+	recorder                     record.EventRecorder
 	petHealthChecker
 }
 

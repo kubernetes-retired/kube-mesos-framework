@@ -156,7 +156,6 @@ func readInstanceID() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Cannot open %s: %v", metaDataPath, err)
 	}
-	defer file.Close()
 
 	return parseMetaData(file)
 }
@@ -645,4 +644,25 @@ func (rs *Rackspace) DiskIsAttached(diskName, instanceID string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// query if a list volumes are attached to a compute instance
+func (rs *Rackspace) DisksAreAttached(diskNames []string, instanceID string) (map[string]bool, error) {
+	attached := make(map[string]bool)
+	for _, diskName := range diskNames {
+		attached[diskName] = false
+	}
+	var returnedErr error
+	for _, diskName := range diskNames {
+		result, err := rs.DiskIsAttached(diskName, instanceID)
+		if err != nil {
+			returnedErr = fmt.Errorf("Error in checking disk %q attached: %v \n %v", diskName, err, returnedErr)
+			continue
+		}
+		if result {
+			attached[diskName] = true
+		}
+
+	}
+	return attached, returnedErr
 }

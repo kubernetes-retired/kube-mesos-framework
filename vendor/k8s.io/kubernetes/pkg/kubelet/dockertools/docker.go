@@ -38,6 +38,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/leaky"
 	"k8s.io/kubernetes/pkg/types"
 	utilerrors "k8s.io/kubernetes/pkg/util/errors"
+	"k8s.io/kubernetes/pkg/util/flowcontrol"
 	"k8s.io/kubernetes/pkg/util/parsers"
 )
 
@@ -113,11 +114,24 @@ type dockerPuller struct {
 	keyring credentialprovider.DockerKeyring
 }
 
+type throttledDockerPuller struct {
+	puller  dockerPuller
+	limiter flowcontrol.RateLimiter
+}
+
 // newDockerPuller creates a new instance of the default implementation of DockerPuller.
-func newDockerPuller(client DockerInterface) DockerPuller {
-	return &dockerPuller{
+func newDockerPuller(client DockerInterface, qps float32, burst int) DockerPuller {
+	dp := dockerPuller{
 		client:  client,
 		keyring: credentialprovider.NewDockerKeyring(),
+	}
+
+	if qps == 0.0 {
+		return dp
+	}
+	return &throttledDockerPuller{
+		puller:  dp,
+		limiter: flowcontrol.NewTokenBucketRateLimiter(qps, burst),
 	}
 }
 
@@ -271,6 +285,13 @@ func (p dockerPuller) Pull(image string, secrets []api.Secret) error {
 	return utilerrors.NewAggregate(pullErrs)
 }
 
+func (p throttledDockerPuller) Pull(image string, secrets []api.Secret) error {
+	if p.limiter.TryAccept() {
+		return p.puller.Pull(image, secrets)
+	}
+	return fmt.Errorf("pull QPS exceeded.")
+}
+
 func (p dockerPuller) IsImagePresent(image string) (bool, error) {
 	_, err := p.client.InspectImage(image)
 	if err == nil {
@@ -280,6 +301,10 @@ func (p dockerPuller) IsImagePresent(image string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+func (p throttledDockerPuller) IsImagePresent(name string) (bool, error) {
+	return p.puller.IsImagePresent(name)
 }
 
 // Creates a name which can be reversed to identify both full pod name and container name.

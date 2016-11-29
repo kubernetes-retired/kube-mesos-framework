@@ -49,7 +49,7 @@ func (a *auditResponseWriter) WriteHeader(code int) {
 }
 
 // fancyResponseWriterDelegator implements http.CloseNotifier, http.Flusher and
-// http.Hijacker which are needed to make certain http operation (e.g. watch, rsh, etc)
+// http.Hijacker which are needed to make certain http operation (eg. watch, rsh, etc)
 // working.
 type fancyResponseWriterDelegator struct {
 	*auditResponseWriter
@@ -72,8 +72,7 @@ var _ http.Flusher = &fancyResponseWriterDelegator{}
 var _ http.Hijacker = &fancyResponseWriterDelegator{}
 
 // WithAudit decorates a http.Handler with audit logging information for all the
-// requests coming to the server. If out is nil, no decoration takes place.
-// Each audit log contains two entries:
+// requests coming to the server. Each audit log contains two entries:
 // 1. the request line containing:
 //    - unique id allowing to match the response line (see 2)
 //    - source ip of the request
@@ -86,9 +85,6 @@ var _ http.Hijacker = &fancyResponseWriterDelegator{}
 //    - the unique id from 1
 //    - response code
 func WithAudit(handler http.Handler, attributeGetter apiserver.RequestAttributeGetter, out io.Writer) http.Handler {
-	if out == nil {
-		return handler
-	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		attribs := attributeGetter.GetAttribs(req)
 		asuser := req.Header.Get("Impersonate-User")

@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/gcfg.v1"
+	gcfg "gopkg.in/gcfg.v1"
 
 	"k8s.io/kubernetes/pkg/api"
 	apiservice "k8s.io/kubernetes/pkg/api/service"
@@ -40,7 +40,6 @@ import (
 	netsets "k8s.io/kubernetes/pkg/util/net/sets"
 	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/wait"
-	"k8s.io/kubernetes/pkg/volume"
 
 	"cloud.google.com/go/compute/metadata"
 	"github.com/golang/glog"
@@ -132,6 +131,10 @@ type Disks interface {
 
 	// DiskIsAttached checks if a disk is attached to the given node.
 	DiskIsAttached(diskName, instanceID string) (bool, error)
+
+	// DisksAreAttached is a batch function to check if a list of disks are attached
+	// to the node with the specified NodeName.
+	DisksAreAttached(diskNames []string, nodeName string) (map[string]bool, error)
 
 	// CreateDisk creates a new PD with given properties. Tags are serialized
 	// as JSON into Description field.
@@ -2417,19 +2420,6 @@ func (gce *GCECloud) encodeDiskTags(tags map[string]string) (string, error) {
 // the specified zone. It stores specified tags encoded in JSON in Description
 // field.
 func (gce *GCECloud) CreateDisk(name string, diskType string, zone string, sizeGb int64, tags map[string]string) error {
-	// Do not allow creation of PDs in zones that are not managed. Such PDs
-	// then cannot be deleted by DeleteDisk.
-	isManaged := false
-	for _, managedZone := range gce.managedZones {
-		if zone == managedZone {
-			isManaged = true
-			break
-		}
-	}
-	if !isManaged {
-		return fmt.Errorf("kubernetes does not manage zone %q", zone)
-	}
-
 	tagsStr, err := gce.encodeDiskTags(tags)
 	if err != nil {
 		return err
@@ -2460,7 +2450,7 @@ func (gce *GCECloud) CreateDisk(name string, diskType string, zone string, sizeG
 	return gce.waitForZoneOp(createOp, zone)
 }
 
-func (gce *GCECloud) doDeleteDisk(diskToDelete string) error {
+func (gce *GCECloud) DeleteDisk(diskToDelete string) error {
 	disk, err := gce.getDiskByNameUnknownZone(diskToDelete)
 	if err != nil {
 		return err
@@ -2472,30 +2462,6 @@ func (gce *GCECloud) doDeleteDisk(diskToDelete string) error {
 	}
 
 	return gce.waitForZoneOp(deleteOp, disk.Zone)
-}
-
-func (gce *GCECloud) DeleteDisk(diskToDelete string) error {
-	err := gce.doDeleteDisk(diskToDelete)
-	if isGCEError(err, "resourceInUseByAnotherResource") {
-		return volume.NewDeletedVolumeInUseError(err.Error())
-	}
-	return err
-}
-
-// isGCEError returns true if given error is a googleapi.Error with given
-// reason (e.g. "resourceInUseByAnotherResource")
-func isGCEError(err error, reason string) bool {
-	apiErr, ok := err.(*googleapi.Error)
-	if !ok {
-		return false
-	}
-
-	for _, e := range apiErr.Errors {
-		if e.Reason == reason {
-			return true
-		}
-	}
-	return false
 }
 
 // Builds the labels that should be automatically added to a PersistentVolume backed by a GCE PD
@@ -2616,6 +2582,37 @@ func (gce *GCECloud) DiskIsAttached(diskName, instanceID string) (bool, error) {
 	return false, nil
 }
 
+func (gce *GCECloud) DisksAreAttached(diskNames []string, nodeName string) (map[string]bool, error) {
+	attached := make(map[string]bool)
+	for _, diskName := range diskNames {
+		attached[diskName] = false
+	}
+	instance, err := gce.getInstanceByName(nodeName)
+	if err != nil {
+		if err == cloudprovider.InstanceNotFound {
+			// If instance no longer exists, safe to assume volume is not attached.
+			glog.Warningf(
+				"Instance %q does not exist. DisksAreAttached will assume PD %v are not attached to it.",
+				nodeName,
+				diskNames)
+			return attached, nil
+		}
+
+		return attached, err
+	}
+
+	for _, instanceDisk := range instance.Disks {
+		for _, diskName := range diskNames {
+			if instanceDisk.DeviceName == diskName {
+				// Disk is still attached to node
+				attached[diskName] = true
+			}
+		}
+	}
+
+	return attached, nil
+}
+
 // Returns a gceDisk for the disk, if it is found in the specified zone.
 // If not found, returns (nil, nil)
 func (gce *GCECloud) findDiskByName(diskName string, zone string) (*gceDisk, error) {
@@ -2675,7 +2672,7 @@ func (gce *GCECloud) getDiskByNameUnknownZone(diskName string) (*gceDisk, error)
 	if found != nil {
 		return found, nil
 	}
-	return nil, fmt.Errorf("GCE persistent disk %q not found in managed zones (%s)", diskName, strings.Join(gce.managedZones, ","))
+	return nil, fmt.Errorf("GCE persistent disk not found: %q", diskName)
 }
 
 // GetGCERegion returns region of the gce zone. Zone names

@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/meta/metatypes"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/api/v1"
+	"k8s.io/kubernetes/pkg/apimachinery/registered"
 	"k8s.io/kubernetes/pkg/client/cache"
 	"k8s.io/kubernetes/pkg/client/typed/dynamic"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector/metaonly"
@@ -416,9 +417,6 @@ func (p *Propagator) processEvent() {
 		p.removeNode(existingNode)
 		existingNode.dependentsLock.RLock()
 		defer existingNode.dependentsLock.RUnlock()
-		if len(existingNode.dependents) > 0 {
-			p.gc.absentOwnerCache.Add(accessor.GetUID())
-		}
 		for dep := range existingNode.dependents {
 			p.gc.dirtyQueue.Add(&workqueue.TimedWorkQueueItem{StartTime: p.gc.clock.Now(), Object: dep})
 		}
@@ -477,7 +475,7 @@ func (gc *GarbageCollector) monitorFor(resource unversioned.GroupVersionResource
 	// TODO: consider store in one storage.
 	glog.V(6).Infof("create storage for resource %s", resource)
 	var monitor monitor
-	client, err := gc.metaOnlyClientPool.ClientForGroupVersionKind(kind)
+	client, err := gc.metaOnlyClientPool.ClientForGroupVersion(resource.GroupVersion())
 	if err != nil {
 		return monitor, err
 	}
@@ -526,27 +524,26 @@ func (gc *GarbageCollector) monitorFor(resource unversioned.GroupVersionResource
 }
 
 var ignoredResources = map[unversioned.GroupVersionResource]struct{}{
-	unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicationcontrollers"}:              {},
-	unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "bindings"}:                                           {},
-	unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "componentstatuses"}:                                  {},
-	unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "events"}:                                             {},
-	unversioned.GroupVersionResource{Group: "authentication.k8s.io", Version: "v1beta1", Resource: "tokenreviews"}:             {},
-	unversioned.GroupVersionResource{Group: "authorization.k8s.io", Version: "v1beta1", Resource: "subjectaccessreviews"}:      {},
-	unversioned.GroupVersionResource{Group: "authorization.k8s.io", Version: "v1beta1", Resource: "selfsubjectaccessreviews"}:  {},
-	unversioned.GroupVersionResource{Group: "authorization.k8s.io", Version: "v1beta1", Resource: "localsubjectaccessreviews"}: {},
+	unversioned.GroupVersionResource{Group: "extensions", Version: "v1beta1", Resource: "replicationcontrollers"}:         {},
+	unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "bindings"}:                                      {},
+	unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "componentstatuses"}:                             {},
+	unversioned.GroupVersionResource{Group: "", Version: "v1", Resource: "events"}:                                        {},
+	unversioned.GroupVersionResource{Group: "authentication.k8s.io", Version: "v1beta1", Resource: "tokenreviews"}:        {},
+	unversioned.GroupVersionResource{Group: "authorization.k8s.io", Version: "v1beta1", Resource: "subjectaccessreviews"}: {},
 }
 
-func NewGarbageCollector(metaOnlyClientPool dynamic.ClientPool, clientPool dynamic.ClientPool, mapper meta.RESTMapper, resources []unversioned.GroupVersionResource) (*GarbageCollector, error) {
+func NewGarbageCollector(metaOnlyClientPool dynamic.ClientPool, clientPool dynamic.ClientPool, resources []unversioned.GroupVersionResource) (*GarbageCollector, error) {
 	gc := &GarbageCollector{
-		metaOnlyClientPool:               metaOnlyClientPool,
-		clientPool:                       clientPool,
-		restMapper:                       mapper,
+		metaOnlyClientPool: metaOnlyClientPool,
+		clientPool:         clientPool,
+		// TODO: should use a dynamic RESTMapper built from the discovery results.
+		restMapper:                       registered.RESTMapper(),
 		clock:                            clock.RealClock{},
 		dirtyQueue:                       workqueue.NewTimedWorkQueue(),
 		orphanQueue:                      workqueue.NewTimedWorkQueue(),
 		registeredRateLimiter:            NewRegisteredRateLimiter(resources),
 		registeredRateLimiterForMonitors: NewRegisteredRateLimiter(resources),
-		absentOwnerCache:                 NewUIDCache(500),
+		absentOwnerCache:                 NewUIDCache(100),
 	}
 	gc.propagator = &Propagator{
 		eventQueue: workqueue.NewTimedWorkQueue(),
@@ -609,7 +606,7 @@ func (gc *GarbageCollector) apiResource(apiVersion, kind string, namespaced bool
 
 func (gc *GarbageCollector) deleteObject(item objectReference) error {
 	fqKind := unversioned.FromAPIVersionAndKind(item.APIVersion, item.Kind)
-	client, err := gc.clientPool.ClientForGroupVersionKind(fqKind)
+	client, err := gc.clientPool.ClientForGroupVersion(fqKind.GroupVersion())
 	gc.registeredRateLimiter.registerIfNotPresent(fqKind.GroupVersion(), client, "garbage_collector_operation")
 	resource, err := gc.apiResource(item.APIVersion, item.Kind, len(item.Namespace) != 0)
 	if err != nil {
@@ -623,7 +620,7 @@ func (gc *GarbageCollector) deleteObject(item objectReference) error {
 
 func (gc *GarbageCollector) getObject(item objectReference) (*runtime.Unstructured, error) {
 	fqKind := unversioned.FromAPIVersionAndKind(item.APIVersion, item.Kind)
-	client, err := gc.clientPool.ClientForGroupVersionKind(fqKind)
+	client, err := gc.clientPool.ClientForGroupVersion(fqKind.GroupVersion())
 	gc.registeredRateLimiter.registerIfNotPresent(fqKind.GroupVersion(), client, "garbage_collector_operation")
 	resource, err := gc.apiResource(item.APIVersion, item.Kind, len(item.Namespace) != 0)
 	if err != nil {
@@ -634,7 +631,7 @@ func (gc *GarbageCollector) getObject(item objectReference) (*runtime.Unstructur
 
 func (gc *GarbageCollector) updateObject(item objectReference, obj *runtime.Unstructured) (*runtime.Unstructured, error) {
 	fqKind := unversioned.FromAPIVersionAndKind(item.APIVersion, item.Kind)
-	client, err := gc.clientPool.ClientForGroupVersionKind(fqKind)
+	client, err := gc.clientPool.ClientForGroupVersion(fqKind.GroupVersion())
 	gc.registeredRateLimiter.registerIfNotPresent(fqKind.GroupVersion(), client, "garbage_collector_operation")
 	resource, err := gc.apiResource(item.APIVersion, item.Kind, len(item.Namespace) != 0)
 	if err != nil {
@@ -645,7 +642,7 @@ func (gc *GarbageCollector) updateObject(item objectReference, obj *runtime.Unst
 
 func (gc *GarbageCollector) patchObject(item objectReference, patch []byte) (*runtime.Unstructured, error) {
 	fqKind := unversioned.FromAPIVersionAndKind(item.APIVersion, item.Kind)
-	client, err := gc.clientPool.ClientForGroupVersionKind(fqKind)
+	client, err := gc.clientPool.ClientForGroupVersion(fqKind.GroupVersion())
 	gc.registeredRateLimiter.registerIfNotPresent(fqKind.GroupVersion(), client, "garbage_collector_operation")
 	resource, err := gc.apiResource(item.APIVersion, item.Kind, len(item.Namespace) != 0)
 	if err != nil {
@@ -726,7 +723,7 @@ func (gc *GarbageCollector) processItem(item *node) error {
 		// prevent objects having references to an old resource from being
 		// deleted during a cluster upgrade.
 		fqKind := unversioned.FromAPIVersionAndKind(reference.APIVersion, reference.Kind)
-		client, err := gc.clientPool.ClientForGroupVersionKind(fqKind)
+		client, err := gc.clientPool.ClientForGroupVersion(fqKind.GroupVersion())
 		if err != nil {
 			return err
 		}

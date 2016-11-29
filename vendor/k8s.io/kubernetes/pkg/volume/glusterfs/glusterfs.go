@@ -18,6 +18,11 @@ package glusterfs
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"strconv"
+	dstrings "strings"
+
 	"github.com/golang/glog"
 	gcli "github.com/heketi/heketi/client/api/go-client"
 	gapi "github.com/heketi/heketi/pkg/glusterfs/api"
@@ -28,10 +33,6 @@ import (
 	"k8s.io/kubernetes/pkg/util/mount"
 	"k8s.io/kubernetes/pkg/util/strings"
 	"k8s.io/kubernetes/pkg/volume"
-	"os"
-	"path"
-	"strconv"
-	dstrings "strings"
 )
 
 // This is the primary entrypoint for volume plugins.
@@ -55,8 +56,6 @@ var _ volume.Deleter = &glusterfsVolumeDeleter{}
 const (
 	glusterfsPluginName = "kubernetes.io/glusterfs"
 	volprefix           = "vol_"
-	replicacount        = 3
-	durabilitytype      = "replicate"
 )
 
 func (plugin *glusterfsPlugin) Init(host volume.VolumeHost) error {
@@ -469,13 +468,13 @@ func (p *glusterfsVolumeProvisioner) CreateVolume() (r *api.GlusterfsVolumeSourc
 		glog.Errorf("glusterfs: failed to create gluster rest client")
 		return nil, 0, fmt.Errorf("failed to create gluster REST client, REST server authentication failed")
 	}
-	volumeReq := &gapi.VolumeCreateRequest{Size: sz, Durability: gapi.VolumeDurabilityInfo{Type: durabilitytype, Replicate: gapi.ReplicaDurability{Replica: replicacount}}}
+	volumeReq := &gapi.VolumeCreateRequest{Size: sz}
 	volume, err := cli.VolumeCreate(volumeReq)
 	if err != nil {
 		glog.Errorf("glusterfs: error creating volume %s ", err)
 		return nil, 0, fmt.Errorf("error creating volume %v", err)
 	}
-	glog.V(1).Infof("glusterfs: volume with size :%d and name:%s created", volume.Size, volume.Name)
+	glog.V(1).Infof("glusterfs: volume with size: %d and name: %s created", volume.Size, volume.Name)
 	return &api.GlusterfsVolumeSource{
 		EndpointsName: p.glusterfsClusterConf.glusterep,
 		Path:          volume.Name,

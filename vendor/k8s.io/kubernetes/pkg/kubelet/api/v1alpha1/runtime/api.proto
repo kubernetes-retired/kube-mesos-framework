@@ -8,9 +8,9 @@ service RuntimeService {
     // Version returns the runtime name, runtime version and runtime API version
     rpc Version(VersionRequest) returns (VersionResponse) {}
 
-    // RunPodSandbox creates and starts a pod-level sandbox. Runtimes should ensure
-    // the sandbox is in ready state.
-    rpc RunPodSandbox(RunPodSandboxRequest) returns (RunPodSandboxResponse) {}
+    // CreatePodSandbox creates a pod-level sandbox.
+    // The definition of PodSandbox is at https://github.com/kubernetes/kubernetes/pull/25899
+    rpc CreatePodSandbox(CreatePodSandboxRequest) returns (CreatePodSandboxResponse) {}
     // StopPodSandbox stops the running sandbox. If there are any running
     // containers in the sandbox, they should be forcibly terminated.
     rpc StopPodSandbox(StopPodSandboxRequest) returns (StopPodSandboxResponse) {}
@@ -65,11 +65,9 @@ message VersionResponse {
     optional string version = 1;
     // The name of the container runtime.
     optional string runtime_name = 2;
-    // The version of the container runtime. The string should be
-    // semver-compatible.
+    // The version of the container runtime.
     optional string runtime_version = 3;
-    // The API version of the container runtime. The string should be
-    // semver-compatible.
+    // The API version of the container runtime.
     optional string runtime_api_version = 4;
 }
 
@@ -190,12 +188,12 @@ message PodSandboxConfig {
     optional LinuxPodSandboxConfig linux = 8;
 }
 
-message RunPodSandboxRequest {
+message CreatePodSandboxRequest {
     // The configuration for creating a PodSandBox.
     optional PodSandboxConfig config = 1;
 }
 
-message RunPodSandboxResponse {
+message CreatePodSandboxResponse {
     // The id of the PodSandBox
     optional string pod_sandbox_id = 1;
 }
@@ -273,14 +271,16 @@ message PodSandboxStatusResponse {
 // PodSandboxFilter is used to filter a list of PodSandboxes.
 // All those fields are combined with 'AND'
 message PodSandboxFilter {
+    // Name of the sandbox.
+    optional string name = 1;
     // ID of the sandbox.
-    optional string id = 1;
+    optional string id = 2;
     // State of the sandbox.
-    optional PodSandBoxState state = 2;
+    optional PodSandBoxState state = 3;
     // LabelSelector to select matches.
     // Only api.MatchLabels is supported for now and the requirements
     // are ANDed. MatchExpressions is not supported yet.
-    map<string, string> label_selector = 3;
+    map<string, string> label_selector = 4;
 }
 
 message ListPodSandboxRequest {
@@ -301,9 +301,6 @@ message PodSandbox {
     optional int64 created_at = 4;
     // The labels of the PodSandbox
     map<string, string> labels = 5;
-    // Annotations is an unstructured key value map that may be set by external
-    // tools to store and retrieve arbitrary metadata.
-    map<string, string> annotations = 6;
 }
 
 message ListPodSandboxResponse {
@@ -498,16 +495,18 @@ enum ContainerState {
 // ContainerFilter is used to filter containers.
 // All those fields are combined with 'AND'
 message ContainerFilter {
+    // Name of the container.
+    optional string name = 1;
     // ID of the container.
-    optional string id = 1;
+    optional string id = 2;
     // State of the container.
-    optional ContainerState state = 2;
+    optional ContainerState state = 3;
     // The id of the pod sandbox
-    optional string pod_sandbox_id = 3;
+    optional string pod_sandbox_id = 4;
     // LabelSelector to select matches.
     // Only api.MatchLabels is supported for now and the requirements
     // are ANDed. MatchExpressions is not supported yet.
-    map<string, string> label_selector = 4;
+    map<string, string> label_selector = 5;
 }
 
 message ListContainersRequest {
@@ -520,24 +519,20 @@ message Container {
     // The ID of the container, used by the container runtime to identify
     // a container.
     optional string id = 1;
-    // The id of the sandbox which this container belongs to.
-    optional string pod_sandbox_id = 2;
     // The metadata of the container.
-    optional ContainerMetadata metadata = 3;
+    optional ContainerMetadata metadata = 2;
      // The spec of the image
-    optional ImageSpec image = 4;
+    optional ImageSpec image = 3;
     // Reference to the image in use. For most runtimes, this should be an
     // image ID.
-    optional string image_ref = 5;
+    optional string image_ref = 4;
     // State is the state of the container.
-    optional ContainerState state = 6;
-    // Creation time of the container.
-    optional int64 created_at = 7;
+    optional ContainerState state = 5;
     // Labels are key value pairs that may be used to scope and select individual resources.
-    map<string, string> labels = 8;
+    map<string, string> labels = 6;
     // Annotations is an unstructured key value map that may be set by external
     // tools to store and retrieve arbitrary metadata.
-    map<string, string> annotations = 9;
+    map<string, string> annotations = 7;
 }
 
 message ListContainersResponse {
@@ -571,17 +566,14 @@ message ContainerStatus {
     // Reference to the image in use. For most runtimes, this should be an
     // image ID
     optional string image_ref = 9;
-    // A brief CamelCase string explains why container is in such a status.
+    // A string explains why container is in such a status.
     optional string reason = 10;
-    // A human-readable message indication details about why container is in
-    // this state.
-    optional string message = 11;
     // Labels are key value pairs that may be used to scope and select individual resources.
-    map<string,string> labels = 12;
+    map<string,string> labels = 11;
     // Annotations is an unstructured key value map.
-    map<string,string> annotations = 13;
+    map<string,string> annotations = 12;
     // Mounts specifies mounts for the container
-    repeated Mount mounts = 14;
+    repeated Mount mounts = 13;
 }
 
 message ContainerStatusResponse {

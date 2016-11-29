@@ -23,8 +23,6 @@ import (
 	"path"
 	"strings"
 
-	"k8s.io/kubernetes/pkg/volume"
-
 	"github.com/rackspace/gophercloud"
 	"github.com/rackspace/gophercloud/openstack"
 	"github.com/rackspace/gophercloud/openstack/blockstorage/v1/volumes"
@@ -184,15 +182,6 @@ func (os *OpenStack) GetDevicePath(diskId string) string {
 }
 
 func (os *OpenStack) DeleteVolume(volumeName string) error {
-	used, err := os.diskIsUsed(volumeName)
-	if err != nil {
-		return err
-	}
-	if used {
-		msg := fmt.Sprintf("Cannot delete the volume %q, it's still attached to a node", volumeName)
-		return volume.NewDeletedVolumeInUseError(msg)
-	}
-
 	sClient, err := openstack.NewBlockStorageV1(os.provider, gophercloud.EndpointOpts{
 		Region: os.region,
 	})
@@ -238,6 +227,24 @@ func (os *OpenStack) DiskIsAttached(diskName, instanceID string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// query if a list of volumes are attached to a compute instance
+func (os *OpenStack) DisksAreAttached(diskNames []string, instanceID string) (map[string]bool, error) {
+	attached := make(map[string]bool)
+	for _, diskName := range diskNames {
+		attached[diskName] = false
+	}
+	for _, diskName := range diskNames {
+		disk, err := os.getVolume(diskName)
+		if err != nil {
+			continue
+		}
+		if len(disk.Attachments) > 0 && disk.Attachments[0]["server_id"] != nil && instanceID == disk.Attachments[0]["server_id"] {
+			attached[diskName] = true
+		}
+	}
+	return attached, nil
 }
 
 // diskIsUsed returns true a disk is attached to any node.

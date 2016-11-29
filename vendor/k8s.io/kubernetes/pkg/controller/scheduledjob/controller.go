@@ -38,9 +38,8 @@ import (
 	"k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/batch"
-	clientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	unversionedcore "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset/typed/core/unversioned"
 	"k8s.io/kubernetes/pkg/client/record"
+	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/controller/job"
 	"k8s.io/kubernetes/pkg/runtime"
 	utilerrors "k8s.io/kubernetes/pkg/util/errors"
@@ -52,21 +51,21 @@ import (
 // Utilities for dealing with Jobs and ScheduledJobs and time.
 
 type ScheduledJobController struct {
-	kubeClient clientset.Interface
+	kubeClient *client.Client
 	jobControl jobControlInterface
 	sjControl  sjControlInterface
 	podControl podControlInterface
 	recorder   record.EventRecorder
 }
 
-func NewScheduledJobController(kubeClient clientset.Interface) *ScheduledJobController {
+func NewScheduledJobController(kubeClient *client.Client) *ScheduledJobController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)
 	// TODO: remove the wrapper when every clients have moved to use the clientset.
-	eventBroadcaster.StartRecordingToSink(&unversionedcore.EventSinkImpl{Interface: kubeClient.Core().Events("")})
+	eventBroadcaster.StartRecordingToSink(kubeClient.Events(""))
 
-	if kubeClient != nil && kubeClient.Core().GetRESTClient().GetRateLimiter() != nil {
-		metrics.RegisterMetricAndTrackRateLimiterUsage("scheduledjob_controller", kubeClient.Core().GetRESTClient().GetRateLimiter())
+	if kubeClient != nil && kubeClient.GetRateLimiter() != nil {
+		metrics.RegisterMetricAndTrackRateLimiterUsage("scheduledjob_controller", kubeClient.GetRateLimiter())
 	}
 
 	jm := &ScheduledJobController{
@@ -74,13 +73,13 @@ func NewScheduledJobController(kubeClient clientset.Interface) *ScheduledJobCont
 		jobControl: realJobControl{KubeClient: kubeClient},
 		sjControl:  &realSJControl{KubeClient: kubeClient},
 		podControl: &realPodControl{KubeClient: kubeClient},
-		recorder:   eventBroadcaster.NewRecorder(api.EventSource{Component: "scheduledjob-controller"}),
+		recorder:   eventBroadcaster.NewRecorder(api.EventSource{Component: "scheduled-job-controller"}),
 	}
 
 	return jm
 }
 
-func NewScheduledJobControllerFromClient(kubeClient clientset.Interface) *ScheduledJobController {
+func NewScheduledJobControllerFromClient(kubeClient *client.Client) *ScheduledJobController {
 	jm := NewScheduledJobController(kubeClient)
 	return jm
 }
@@ -103,7 +102,7 @@ func (jm *ScheduledJobController) SyncAll() {
 		return
 	}
 	sjs := sjl.Items
-	glog.V(4).Infof("Found %d scheduledjobs", len(sjs))
+	glog.Infof("Found %d scheduledjobs", len(sjs))
 
 	jl, err := jm.kubeClient.Batch().Jobs(api.NamespaceAll).List(api.ListOptions{})
 	if err != nil {
@@ -111,10 +110,10 @@ func (jm *ScheduledJobController) SyncAll() {
 		return
 	}
 	js := jl.Items
-	glog.V(4).Infof("Found %d jobs", len(js))
+	glog.Infof("Found %d jobs", len(js))
 
 	jobsBySj := groupJobsByParent(sjs, js)
-	glog.V(4).Infof("Found %d groups", len(jobsBySj))
+	glog.Infof("Found %d groups", len(jobsBySj))
 
 	for _, sj := range sjs {
 		SyncOne(sj, jobsBySj[sj.UID], time.Now(), jm.jobControl, jm.sjControl, jm.podControl, jm.recorder)
@@ -169,7 +168,7 @@ func SyncOne(sj batch.ScheduledJob, js []batch.Job, now time.Time, jc jobControl
 		return
 	}
 	if len(times) > 1 {
-		glog.Errorf("Multiple unmet start times for %s so only starting last one", nameForLog)
+		glog.V(4).Infof("Multiple unmet start times for %s so only starting last one", nameForLog)
 	}
 	scheduledTime := times[len(times)-1]
 	tooLate := false
@@ -177,7 +176,7 @@ func SyncOne(sj batch.ScheduledJob, js []batch.Job, now time.Time, jc jobControl
 		tooLate = scheduledTime.Add(time.Second * time.Duration(*sj.Spec.StartingDeadlineSeconds)).Before(now)
 	}
 	if tooLate {
-		glog.Errorf("Missed starting window for %s", nameForLog)
+		glog.V(4).Infof("Missed starting window for %s", nameForLog)
 		// TODO: generate an event for a miss.  Use a warning level event because it indicates a
 		// problem with the controller (restart or long queue), and is not expected by user either.
 		// Since we don't set LastScheduleTime when not scheduling, we are going to keep noticing
@@ -199,14 +198,14 @@ func SyncOne(sj batch.ScheduledJob, js []batch.Job, now time.Time, jc jobControl
 		// TODO: for Forbid, we could use the same name for every execution, as a lock.
 		// With replace, we could use a name that is deterministic per execution time.
 		// But that would mean that you could not inspect prior successes or failures of Forbid jobs.
-		glog.V(4).Infof("Not starting job for %s because of prior execution still running and concurrency policy is Forbid.", nameForLog)
+		glog.V(4).Infof("Not starting job for %s because of prior execution still running and concurrency policy is Forbid", nameForLog)
 		return
 	}
 	if sj.Spec.ConcurrencyPolicy == batch.ReplaceConcurrent {
 		for _, j := range sj.Status.Active {
 			// TODO: this should be replaced with server side job deletion
 			// currently this mimics JobReaper from pkg/kubectl/stop.go
-			glog.V(4).Infof("Deleting job %s of %s s that was still running at next scheduled start time", j.Name, nameForLog)
+			glog.V(4).Infof("Deleting job %s of %s that was still running at next scheduled start time", j.Name, nameForLog)
 			job, err := jc.GetJob(j.Namespace, j.Name)
 			if err != nil {
 				recorder.Eventf(&sj, api.EventTypeWarning, "FailedGet", "Get job: %v", err)
@@ -242,11 +241,14 @@ func SyncOne(sj batch.ScheduledJob, js []batch.Job, now time.Time, jc jobControl
 				recorder.Eventf(&sj, api.EventTypeWarning, "FailedDelete", "Deleted job-pods: %v", utilerrors.NewAggregate(errList))
 				return
 			}
-			// ... and the job itself
+			// ... the job itself...
 			if err := jc.DeleteJob(job.Namespace, job.Name); err != nil {
 				recorder.Eventf(&sj, api.EventTypeWarning, "FailedDelete", "Deleted job: %v", err)
+				glog.Errorf("Error deleting job %s from %s: %v", job.Name, nameForLog, err)
 				return
 			}
+			// ... and its reference from active list
+			deleteFromActiveList(&sj, job.ObjectMeta.UID)
 			recorder.Eventf(&sj, api.EventTypeNormal, "SuccessfulDelete", "Deleted job %v", j.Name)
 		}
 	}
@@ -261,6 +263,7 @@ func SyncOne(sj batch.ScheduledJob, js []batch.Job, now time.Time, jc jobControl
 		recorder.Eventf(&sj, api.EventTypeWarning, "FailedCreate", "Error creating job: %v", err)
 		return
 	}
+	glog.V(4).Infof("Created Job %s for %s", jobResp.Name, nameForLog)
 	recorder.Eventf(&sj, api.EventTypeNormal, "SuccessfulCreate", "Created job %v", jobResp.Name)
 
 	// ------------------------------------------------------------------ //

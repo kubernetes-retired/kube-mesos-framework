@@ -56,9 +56,6 @@ const (
 	SCSIDeviceSlots           = 16
 	SCSIReservedSlot          = 7
 	ThinDiskType              = "thin"
-	PreallocatedDiskType      = "preallocated"
-	EagerZeroedThickDiskType  = "eagerZeroedThick"
-	ZeroedThickDiskType       = "zeroedThick"
 	VolDir                    = "kubevols"
 )
 
@@ -68,17 +65,6 @@ const (
 // making the subsequent attaches to the node to fail.
 // TODO: Add support for lsilogic driver type
 var supportedSCSIControllerType = []string{strings.ToLower(LSILogicSASControllerType), PVSCSIControllerType}
-
-// Maps user options to API parameters.
-// Keeping user options consistent with docker volume plugin for vSphere.
-// API: http://pubs.vmware.com/vsphere-60/index.jsp#com.vmware.wssdk.apiref.doc/vim.VirtualDiskManager.VirtualDiskType.html
-var diskFormatValidType = map[string]string{
-	ThinDiskType:                              ThinDiskType,
-	strings.ToLower(EagerZeroedThickDiskType): EagerZeroedThickDiskType,
-	strings.ToLower(ZeroedThickDiskType):      PreallocatedDiskType,
-}
-
-var DiskformatValidOptions = generateDiskFormatValidOptions()
 
 var ErrNoDiskUUIDFound = errors.New("No disk UUID found")
 var ErrNoDiskIDFound = errors.New("No vSphere disk ID found")
@@ -139,29 +125,15 @@ type Volumes interface {
 	// Assumption: If node doesn't exist, disk is not attached to the node.
 	DiskIsAttached(volPath, nodeName string) (bool, error)
 
+	// DisksAreAttached checks if a list disks are attached to the given node.
+	// Assumption: If node doesn't exist, disks are not attached to the node.
+	DisksAreAttached(volPath []string, nodeName string) (map[string]bool, error)
+
 	// CreateVolume creates a new vmdk with specified parameters.
-	CreateVolume(volumeOptions *VolumeOptions) (volumePath string, err error)
+	CreateVolume(name string, size int, tags *map[string]string) (volumePath string, err error)
 
 	// DeleteVolume deletes vmdk.
 	DeleteVolume(vmDiskPath string) error
-}
-
-// VolumeOptions specifies capacity, tags, name and diskFormat for a volume.
-type VolumeOptions struct {
-	CapacityKB int
-	Tags       map[string]string
-	Name       string
-	DiskFormat string
-}
-
-// Generates Valid Options for Diskformat
-func generateDiskFormatValidOptions() string {
-	validopts := ""
-	for diskformat := range diskFormatValidType {
-		validopts += (diskformat + ", ")
-	}
-	validopts = strings.TrimSuffix(validopts, ", ")
-	return validopts
 }
 
 // Parses vSphere cloud config file and stores it into VSphereConfig.
@@ -251,7 +223,7 @@ func readInstance(cfg *VSphereConfig) (string, string, error) {
 		var rp mo.ResourcePool
 		err = s.Properties(ctx, *vm.ResourcePool, []string{"parent"}, &rp)
 		if err == nil {
-			var ccr mo.ClusterComputeResource
+			var ccr mo.ComputeResource
 			err = s.Properties(ctx, *rp.Parent, []string{"name"}, &ccr)
 			if err == nil {
 				cluster = ccr.Name
@@ -632,9 +604,6 @@ func getVirtualMachineDevices(cfg *VSphereConfig, ctx context.Context, c *govmom
 
 // Removes SCSI controller which is latest attached to VM.
 func cleanUpController(newSCSIController types.BaseVirtualDevice, vmDevices object.VirtualDeviceList, vm *object.VirtualMachine, ctx context.Context) error {
-	if newSCSIController == nil || vmDevices == nil || vm == nil {
-		return nil
-	}
 	ctls := vmDevices.SelectByType(newSCSIController)
 	if len(ctls) < 1 {
 		return ErrNoDevicesFound
@@ -727,10 +696,10 @@ func (vs *VSphere) AttachDisk(vmDiskPath string, nodeName string) (diskID string
 
 		scsiController = getSCSIController(vmDevices, vs.cfg.Disk.SCSIControllerType)
 		if scsiController == nil {
-			glog.Errorf("cannot find SCSI controller in VM")
+			glog.Errorf("cannot find SCSI controller in VM - %v", err)
 			// attempt clean up of scsi controller
 			cleanUpController(newSCSIController, vmDevices, vm, ctx)
-			return "", "", fmt.Errorf("cannot find SCSI controller in VM")
+			return "", "", err
 		}
 		newSCSICreated = true
 	}
@@ -909,6 +878,64 @@ func (vs *VSphere) DiskIsAttached(volPath string, nodeName string) (bool, error)
 	return attached, err
 }
 
+// DisksAreAttached returns if disks are attached to the VM using controllers supported by the plugin.
+func (vs *VSphere) DisksAreAttached(volPaths []string, nodeName string) (map[string]bool, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	attached := make(map[string]bool)
+	for _, volPath := range volPaths {
+		attached[volPath] = false
+	}
+
+	// Create vSphere client
+	c, err := vsphereLogin(vs.cfg, ctx)
+	if err != nil {
+		glog.Errorf("Failed to create vSphere client. err: %s", err)
+		return attached, err
+	}
+	defer c.Logout(ctx)
+
+	// Find VM to detach disk from
+	var vSphereInstance string
+	if nodeName == "" {
+		vSphereInstance = vs.localInstanceID
+	} else {
+		vSphereInstance = nodeName
+	}
+
+	nodeExist, err := vs.NodeExists(c, vSphereInstance)
+
+	if err != nil {
+		glog.Errorf("Failed to check whether node exist. err: %s.", err)
+		return attached, err
+	}
+
+	if !nodeExist {
+		glog.Warningf(
+			"Node %q does not exist. DisksAreAttached will assume vmdk %v are not attached to it.",
+			vSphereInstance,
+			volPaths)
+		return attached, nil
+	}
+
+	// Get VM device list
+	_, vmDevices, _, dc, err := getVirtualMachineDevices(vs.cfg, ctx, c, vSphereInstance)
+	if err != nil {
+		glog.Errorf("Failed to get VM devices for VM %#q. err: %s", vSphereInstance, err)
+		return attached, err
+	}
+
+	for _, volPath := range volPaths {
+		result, _ := checkDiskAttached(volPath, vmDevices, dc, c)
+		if result {
+			attached[volPath] = true
+		}
+	}
+
+	return attached, err
+}
+
 func checkDiskAttached(volPath string, vmdevices object.VirtualDeviceList, dc *object.Datacenter, client *govmomi.Client) (bool, error) {
 	virtualDiskControllerKey, err := getVirtualDiskControllerKey(volPath, vmdevices, dc, client)
 	if err != nil {
@@ -919,7 +946,7 @@ func checkDiskAttached(volPath string, vmdevices object.VirtualDeviceList, dc *o
 		return false, err
 	}
 	for _, controllerType := range supportedSCSIControllerType {
-		controllerkey, _ := getControllerKey(controllerType, vmdevices, dc, client)
+		controllerkey, _ := getControllerKey(controllerType, vmdevices)
 		if controllerkey == virtualDiskControllerKey {
 			return true, nil
 		}
@@ -951,7 +978,7 @@ func getVirtualDiskControllerKey(volPath string, vmDevices object.VirtualDeviceL
 
 // Returns key of the controller.
 // Key is unique id that distinguishes one device from other devices in the same virtual machine.
-func getControllerKey(scsiType string, vmDevices object.VirtualDeviceList, dc *object.Datacenter, client *govmomi.Client) (int32, error) {
+func getControllerKey(scsiType string, vmDevices object.VirtualDeviceList) (int32, error) {
 	for _, device := range vmDevices {
 		devType := vmDevices.Type(device)
 		if devType == scsiType {
@@ -1096,22 +1123,7 @@ func (vs *VSphere) DetachDisk(volPath string, nodeName string) error {
 }
 
 // CreateVolume creates a volume of given size (in KiB).
-func (vs *VSphere) CreateVolume(volumeOptions *VolumeOptions) (volumePath string, err error) {
-
-	var diskFormat string
-
-	// Default diskformat as 'thin'
-	if volumeOptions.DiskFormat == "" {
-		volumeOptions.DiskFormat = ThinDiskType
-	}
-
-	if _, ok := diskFormatValidType[volumeOptions.DiskFormat]; !ok {
-		return "", fmt.Errorf("Cannot create disk. Error diskformat %+q."+
-			" Valid options are %s.", volumeOptions.DiskFormat, DiskformatValidOptions)
-	}
-
-	diskFormat = diskFormatValidType[volumeOptions.DiskFormat]
-
+func (vs *VSphere) CreateVolume(name string, size int, tags *map[string]string) (volumePath string, err error) {
 	// Create context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1136,6 +1148,13 @@ func (vs *VSphere) CreateVolume(volumeOptions *VolumeOptions) (volumePath string
 		return "", err
 	}
 
+	if (*tags)["adapterType"] == "" {
+		(*tags)["adapterType"] = LSILogicControllerType
+	}
+	if (*tags)["diskType"] == "" {
+		(*tags)["diskType"] = ThinDiskType
+	}
+
 	// vmdks will be created inside kubevols directory
 	kubeVolsPath := filepath.Clean(ds.Path(VolDir)) + "/"
 	err = makeDirectoryInDatastore(c, dc, kubeVolsPath, false)
@@ -1143,19 +1162,18 @@ func (vs *VSphere) CreateVolume(volumeOptions *VolumeOptions) (volumePath string
 		glog.Errorf("Cannot create dir %#v. err %s", kubeVolsPath, err)
 		return "", err
 	}
-	glog.V(4).Infof("Created dir with path as %+q", kubeVolsPath)
 
-	vmDiskPath := kubeVolsPath + volumeOptions.Name + ".vmdk"
+	vmDiskPath := kubeVolsPath + name + ".vmdk"
 	// Create a virtual disk manager
 	virtualDiskManager := object.NewVirtualDiskManager(c.Client)
 
 	// Create specification for new virtual disk
 	vmDiskSpec := &types.FileBackedVirtualDiskSpec{
 		VirtualDiskSpec: types.VirtualDiskSpec{
-			AdapterType: LSILogicControllerType,
-			DiskType:    diskFormat,
+			AdapterType: (*tags)["adapterType"],
+			DiskType:    (*tags)["diskType"],
 		},
-		CapacityKb: int64(volumeOptions.CapacityKB),
+		CapacityKb: int64(size),
 	}
 
 	// Create virtual disk

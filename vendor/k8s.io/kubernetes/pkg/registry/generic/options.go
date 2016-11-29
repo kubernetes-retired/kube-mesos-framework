@@ -20,10 +20,9 @@ import "k8s.io/kubernetes/pkg/storage/storagebackend"
 
 // RESTOptions is set of configuration options to generic registries.
 type RESTOptions struct {
-	StorageConfig *storagebackend.Config
-	Decorator     StorageDecorator
-
-	EnableGarbageCollection bool
+	StorageConfig           *storagebackend.Config
+	Decorator               StorageDecorator
 	DeleteCollectionWorkers int
-	ResourcePrefix          string
+
+	ResourcePrefix string
 }
