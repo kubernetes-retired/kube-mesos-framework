@@ -20,8 +20,6 @@ kube::contrib::mesos::server_targets() {
   local -r targets=(
     cmd/k8sm-scheduler
     cmd/k8sm-executor
-    cmd/k8sm-controller-manager
-    cmd/km
   )
   echo "${targets[@]}"
 }
