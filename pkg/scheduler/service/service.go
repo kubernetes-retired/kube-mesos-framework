@@ -178,6 +178,7 @@ type SchedulerServer struct {
 	nodeRelistPeriod               time.Duration
 	sandboxOverlay                 string
 	conntrackMax                   int
+	conntrackMaxPerCore            int
 	conntrackTCPTimeoutEstablished int
 	useHostPortEndpoints           bool
 
@@ -243,6 +244,7 @@ func NewSchedulerServer() *SchedulerServer {
 		// when kube-proxy is running in a non-root netns (init_net); setting this to a non-zero value will
 		// impact connection tracking for the entire host on which kube-proxy is running. xref (k8s#19182)
 		conntrackMax: 0,
+		conntrackMaxPerCore: 0,
 	}
 	// cache this for later use. also useful in case the original binary gets deleted, e.g.
 	// during upgrades, development deployments, etc.
@@ -330,6 +332,8 @@ func (s *SchedulerServer) addCoreFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&s.kubeletEnableDebuggingHandlers, "kubelet-enable-debugging-handlers", s.kubeletEnableDebuggingHandlers, "Enables kubelet endpoints for log collection and local running of containers and commands")
 	fs.StringVar(&s.kubeletKubeconfig, "kubelet-kubeconfig", s.kubeletKubeconfig, "Path to kubeconfig file with authorization and master location information used by the kubelet.")
 	fs.IntVar(&s.conntrackMax, "conntrack-max", s.conntrackMax, "Maximum number of NAT connections to track on agent nodes (0 to leave as-is)")
+	fs.IntVar(&s.conntrackMaxPerCore, "conntrack-max-per-core", s.conntrackMaxPerCore,
+		"Maximum number of NAT connections to track per CPU core (0 to leave as-is). This is only considered if conntrack-max is 0.")
 	fs.IntVar(&s.conntrackTCPTimeoutEstablished, "conntrack-tcp-timeout-established", s.conntrackTCPTimeoutEstablished, "Idle timeout for established TCP connections on agent nodes (0 to leave as-is)")
 
 	//TODO(jdef) support this flag once we have a better handle on mesos-dns and k8s DNS integration
@@ -426,6 +430,7 @@ func (s *SchedulerServer) prepareExecutorInfo(hks hyperkube.Interface) (*mesos.E
 		ci.Arguments = append(ci.Arguments, fmt.Sprintf("--max-log-backups=%d", s.minionLogMaxBackups))
 		ci.Arguments = append(ci.Arguments, fmt.Sprintf("--max-log-age=%d", s.minionLogMaxAgeInDays))
 		ci.Arguments = append(ci.Arguments, fmt.Sprintf("--conntrack-max=%d", s.conntrackMax))
+		ci.Arguments = append(ci.Arguments, fmt.Sprintf("--conntrack-max-per-core=%d", s.conntrackMaxPerCore))
 		ci.Arguments = append(ci.Arguments, fmt.Sprintf("--conntrack-tcp-timeout-established=%d", s.conntrackTCPTimeoutEstablished))
 	}
 
