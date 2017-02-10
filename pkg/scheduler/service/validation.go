@@ -20,7 +20,8 @@ import (
 	log "github.com/golang/glog"
 	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/podutil"
 	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/resources"
-	"k8s.io/kubernetes/pkg/api"
+
+	"k8s.io/client-go/1.5/pkg/api"
 )
 
 // StaticPodValidator discards a pod if we can't calculate resource limits for it.

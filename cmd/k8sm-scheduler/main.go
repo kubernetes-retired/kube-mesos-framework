@@ -23,20 +23,12 @@ import (
 	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/hyperkube"
 	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/scheduler/service"
 	"github.com/spf13/pflag"
-	"k8s.io/kubernetes/pkg/util/flag"
-	"k8s.io/kubernetes/pkg/util/logs"
-	"k8s.io/kubernetes/pkg/version/verflag"
+
 )
 
 func main() {
 	s := service.NewSchedulerServer()
 	s.AddStandaloneFlags(pflag.CommandLine)
-
-	flag.InitFlags()
-	logs.InitLogs()
-	defer logs.FlushLogs()
-
-	verflag.PrintAndExitIfRequested()
 
 	if err := s.Run(hyperkube.Nil(), pflag.CommandLine.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
