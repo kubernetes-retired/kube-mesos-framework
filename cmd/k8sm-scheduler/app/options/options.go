@@ -17,14 +17,14 @@ limitations under the License.
 package options
 
 import (
+	"fmt"
 
 	"github.com/spf13/pflag"
-	"fmt"
 )
 
 const (
-	DefaultMesosMaster = "localhost:5050"
-	DefaultMesosUser = "root"
+	DefaultMesosMaster    = "localhost:5050"
+	DefaultMesosUser      = "root"
 	DefaultFrameworkRoles = "*"
 )
 
@@ -48,7 +48,7 @@ func NewSchedulerServer() *SchedulerServer {
 }
 
 func (s *SchedulerServer) ValidateFlags() error {
-	if s.ApiServerList == nil || len (s.ApiServerList) == 0 {
+	if s.ApiServerList == nil || len(s.ApiServerList) == 0 {
 		return fmt.Errorf("api-servers can not be empty.")
 	}
 	return nil
