@@ -220,7 +220,7 @@ func (k *framework) OfferRescinded(driver sched.SchedulerDriver, offerId *mesos.
 
 // StatusUpdate is called when a status update message is sent to the scheduler.
 func (k *framework) StatusUpdate(driver sched.SchedulerDriver, taskStatus *mesos.TaskStatus) {
-	if *taskStatus.State == mesos.TaskState_TASK_LOST || *taskStatus.State == mesos.TaskState_TASK_ERROR {
+	if *taskStatus.State == mesos.TaskState_TASK_LOST {
 		k.reconciler.Handle(&Event{
 			Action: DELETE,
 			TaskID: taskStatus.TaskId,

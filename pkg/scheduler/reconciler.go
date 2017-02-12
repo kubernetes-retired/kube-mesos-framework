@@ -23,6 +23,7 @@ import (
 	mutil "github.com/mesos/mesos-go/mesosutil"
 	bindings "github.com/mesos/mesos-go/scheduler"
 
+	"github.com/golang/glog"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
@@ -37,6 +38,8 @@ type Operation int
 const (
 	DELETE Operation = iota
 	RECONCILE
+
+	PodUIDField = "metadata.uid"
 )
 
 type Event struct {
@@ -44,8 +47,7 @@ type Event struct {
 	TaskID *mesosproto.TaskID
 }
 
-// Reconciler will monitor Pod in k8s, and then sync up with
-// Mesos
+// Reconciler will monitor Pod in k8s, and then sync up with Mesos
 type Reconciler interface {
 	// Handle the event from Mesos, e.g. StatusUpdate, SlaveLost
 	Handle(event *Event)
@@ -106,7 +108,11 @@ func (r *reconciler) Run(stop chan struct{}) {
 		for event := range r.eventChan {
 			switch event.Action {
 			case DELETE:
-				r.clientset.Pods("default").Delete(event.TaskID.GetValue(), nil)
+				selector := fields.OneTermEqualSelector(PodUIDField, event.TaskID.GetValue())
+				err := r.clientset.CoreClient.Delete().FieldsSelectorParam(selector).Do().Error()
+				if err != nil {
+					glog.Errorf("failed to delete Pod %v", event.TaskID.GetValue())
+				}
 			}
 		}
 	}()
