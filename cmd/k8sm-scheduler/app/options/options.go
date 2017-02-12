@@ -19,6 +19,13 @@ package options
 import (
 
 	"github.com/spf13/pflag"
+	"fmt"
+)
+
+const (
+	DefaultMesosMaster = "localhost:5050"
+	DefaultMesosUser = "root"
+	DefaultFrameworkRoles = "*"
 )
 
 type SchedulerServer struct {
@@ -40,13 +47,20 @@ func NewSchedulerServer() *SchedulerServer {
 	return &SchedulerServer{}
 }
 
+func (s *SchedulerServer) ValidateFlags() error {
+	if s.ApiServerList == nil || len (s.ApiServerList) == 0 {
+		return fmt.Errorf("api-servers can not be empty.")
+	}
+	return nil
+}
+
 func (s *SchedulerServer) AddFlags(fs *pflag.FlagSet) {
 	fs.Int32Var(&s.Port, "port", s.Port, "The port that the scheduler's http service runs on")
 	fs.StringVar(&s.Address, "address", s.Address, "The IP address to serve on (set to 0.0.0.0 for all interfaces)")
-	fs.StringSliceVar(&s.ApiServerList, "api-servers", s.ApiServerList, "List of Kubernetes API servers for publishing events, and reading pods and services. (ip:port), comma separated.")
+	fs.StringSliceVar(&s.ApiServerList, "api-servers", nil, "List of Kubernetes API servers for publishing events, and reading pods and services. (ip:port), comma separated.")
 	fs.StringVar(&s.KubeConfig, "kubeconfig", s.KubeConfig, "Path to kubeconfig file with authorization and master location information used by the scheduler.")
-	fs.StringVar(&s.MesosMaster, "mesos-master", s.MesosMaster, "Location of the Mesos master. The format is a comma-delimited list of of hosts like zk://host1:port,host2:port/mesos. If using ZooKeeper, pay particular attention to the leading zk:// and trailing /mesos! If not using ZooKeeper, standard URLs like http://localhost are also acceptable.")
-	fs.StringVar(&s.MesosUser, "mesos-user", s.MesosUser, "Mesos user for this framework, defaults to root.")
-	fs.StringSliceVar(&s.FrameworkRoles, "mesos-framework-roles", s.FrameworkRoles, "Mesos framework roles that the scheduler receives offers for. Currently only \"*\" and optionally one additional role are supported.")
+	fs.StringVar(&s.MesosMaster, "mesos-master", DefaultMesosMaster, "Location of the Mesos master. The format is a comma-delimited list of of hosts like zk://host1:port,host2:port/mesos. If using ZooKeeper, pay particular attention to the leading zk:// and trailing /mesos! If not using ZooKeeper, standard URLs like http://localhost are also acceptable.")
+	fs.StringVar(&s.MesosUser, "mesos-user", DefaultMesosUser, "Mesos user for this framework, defaults to root.")
+	fs.StringSliceVar(&s.FrameworkRoles, "mesos-framework-roles", []string{DefaultFrameworkRoles}, "Mesos framework roles that the scheduler receives offers for. Currently only \"*\" and optionally one additional role are supported.")
 	fs.StringVar(&s.ExecutorURI, "executor-uri", s.ExecutorURI, "The URI of executor.")
 }

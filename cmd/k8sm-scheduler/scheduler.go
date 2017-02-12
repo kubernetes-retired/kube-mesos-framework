@@ -29,6 +29,12 @@ func main() {
 	s := options.NewSchedulerServer()
 	s.AddFlags(pflag.CommandLine)
 
+	if err := s.ValidateFlags(); err != nil {
+		fmt.Printf("%v\n\n", err)
+		pflag.Usage()
+		os.Exit(1)
+	}
+
 	if err := app.Run(s); err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		os.Exit(1)
