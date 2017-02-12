@@ -1,12 +1,11 @@
 package util
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/gogo/protobuf/proto"
-	mesos "github.com/mesos/mesos-go/mesosproto"
-	mutil "github.com/mesos/mesos-go/mesosutil"
+	"github.com/mesos/mesos-go/mesosproto"
+	"github.com/mesos/mesos-go/mesosutil"
 
 	"k8s.io/client-go/1.5/pkg/api/v1"
 )
@@ -20,10 +19,10 @@ const (
 	DefaultExecutorName  = "k8sm-executor"
 )
 
-func IsGreater(ls, rs []*mesos.Resource) bool {
+func IsGreater(ls, rs []*mesosproto.Resource) bool {
 	for _, l := range ls {
 		for _, r := range rs {
-			if l.Name == r.Name && *r.Type == mesos.Value_SCALAR {
+			if l.Name == r.Name && *r.Type == mesosproto.Value_SCALAR {
 				lv := *l.Scalar.Value
 				rv := *r.Scalar.Value
 				if !(lv > rv || math.Abs(lv-rv) < 0.01) {
@@ -36,7 +35,7 @@ func IsGreater(ls, rs []*mesos.Resource) bool {
 	return true
 }
 
-func GetPodResourceRequest(pod *v1.Pod) []*mesos.Resource {
+func GetPodResourceRequest(pod *v1.Pod) []*mesosproto.Resource {
 	var cpu, mem int64
 	for _, container := range pod.Spec.Containers {
 		for rName, rQuantity := range container.Resources.Requests {
@@ -65,33 +64,25 @@ func GetPodResourceRequest(pod *v1.Pod) []*mesos.Resource {
 		}
 	}
 
-	return []*mesos.Resource{
-		mutil.NewScalarResource("cpu", float64(cpu)/1000),
-		mutil.NewScalarResource("mem", float64(mem)),
+	return []*mesosproto.Resource{
+		mesosutil.NewScalarResource("cpu", float64(cpu)/1000),
+		mesosutil.NewScalarResource("mem", float64(mem)),
 	}
 }
 
-func BuildExecutor(uri string) *mesos.ExecutorInfo {
+func BuildExecutor(uri string) *mesosproto.ExecutorInfo {
 	// Create mesos scheduler driver.
-	return &mesos.ExecutorInfo{
-		ExecutorId: mutil.NewExecutorID(DefaultExecutorID),
+	return &mesosproto.ExecutorInfo{
+		ExecutorId: mesosutil.NewExecutorID(DefaultExecutorID),
 		Name:       proto.String(DefaultExecutorName),
 		Source:     proto.String(DefaultFrameworkName),
-		Command: &mesos.CommandInfo{
+		Command: &mesosproto.CommandInfo{
 			Value: proto.String(DefaultExecutorCMD),
-			Uris:  []*mesos.CommandInfo_URI{{Value: &uri, Executable: proto.Bool(true)}},
+			Uris:  []*mesosproto.CommandInfo_URI{{Value: &uri, Executable: proto.Bool(true)}},
 		},
-		Resources: []*mesos.Resource{
-			mutil.NewScalarResource("cpus", DefaultExecutorCPUs),
-			mutil.NewScalarResource("mem", DefaultExecutorMem),
+		Resources: []*mesosproto.Resource{
+			mesosutil.NewScalarResource("cpus", DefaultExecutorCPUs),
+			mesosutil.NewScalarResource("mem", DefaultExecutorMem),
 		},
 	}
-}
-
-func BuildTaskName(pod *v1.Pod) string {
-	return fmt.Sprintf("%v/%v", pod.Namespace, pod.Name)
-}
-
-func BuildTaskID(pod *v1.Pod) *mesos.TaskID {
-	return mutil.NewTaskID(string(pod.UID))
 }

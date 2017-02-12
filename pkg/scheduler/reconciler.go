@@ -19,11 +19,9 @@ package scheduler
 import (
 	"time"
 
-	"github.com/mesos/mesos-go/mesosproto"
-	mutil "github.com/mesos/mesos-go/mesosutil"
-	bindings "github.com/mesos/mesos-go/scheduler"
-
 	"github.com/golang/glog"
+	"github.com/mesos/mesos-go/mesosproto"
+
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
@@ -56,14 +54,13 @@ type Reconciler interface {
 }
 
 type reconciler struct {
-	driver    bindings.SchedulerDriver
+	framework Framework
 	clientset *kubernetes.Clientset
-	eventChan chan Event
 }
 
-func NewReconciler(driver bindings.SchedulerDriver, cs *kubernetes.Clientset) Reconciler {
+func NewReconciler(framework Framework, cs *kubernetes.Clientset) Reconciler {
 	return &reconciler{
-		driver:    driver,
+		framework: framework,
 		clientset: cs,
 	}
 }
@@ -89,35 +86,32 @@ func (r *reconciler) Run(stop chan struct{}) {
 
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			// ignore
+			if pod, ok := obj.(*v1.Pod); ok {
+				r.framework.AddPod(pod)
+			}
 		},
 		UpdateFunc: func(old, obj interface{}) {
-			// ignore
+			if pod, ok := obj.(*v1.Pod); ok {
+				r.framework.UpdatePod(pod)
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if pod, ok := obj.(*v1.Pod); ok {
-				r.driver.KillTask(mutil.NewTaskID(string(pod.GetUID())))
+				r.framework.DeletePod(pod)
 			}
 		},
 	})
 
 	podInformer.Run(stop)
-
-	// Handle Mesos's request
-	go func() {
-		for event := range r.eventChan {
-			switch event.Action {
-			case DELETE:
-				selector := fields.OneTermEqualSelector(PodUIDField, event.TaskID.GetValue())
-				err := r.clientset.CoreClient.Delete().FieldsSelectorParam(selector).Do().Error()
-				if err != nil {
-					glog.Errorf("failed to delete Pod %v", event.TaskID.GetValue())
-				}
-			}
-		}
-	}()
 }
 
 func (r *reconciler) Handle(event *Event) {
-	r.eventChan <- *event
+	switch event.Action {
+	case DELETE:
+		selector := fields.OneTermEqualSelector(PodUIDField, event.TaskID.GetValue())
+		err := r.clientset.CoreClient.Delete().FieldsSelectorParam(selector).Do().Error()
+		if err != nil {
+			glog.Errorf("failed to delete Pod %v", event.TaskID.GetValue())
+		}
+	}
 }

@@ -39,10 +39,8 @@ func Run(s *options.SchedulerServer) error {
 	framework := scheduler.NewFramework(&scheduler.Config{
 		KubeClient: kubeClient,
 	})
-	go framework.Start()
 
-	httpExtender := scheduler.NewHTTPExtender(framework, s.Address, s.Port)
-	httpExtender.Run()
+	framework.Start()
 
 	return nil
 }

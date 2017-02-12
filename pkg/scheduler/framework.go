@@ -23,6 +23,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
+	kmapi "github.com/kubernetes-incubator/kube-mesos-framework/pkg/api"
 	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/util"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	"github.com/mesos/mesos-go/mesosutil"
@@ -31,28 +32,21 @@ import (
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/util/json"
+	"k8s.io/client-go/1.5/tools/cache"
 )
 
 type Framework interface {
 	// Mesos Framework interfaces
 	sched.Scheduler
 
-	// k8s-scheduler HTTPExtender interfaces
-	SchedulerExtender
-
-	// bind Pod to hosts
-	Binder
+	AddPod(pod *v1.Pod)
+	UpdatePod(pod *v1.Pod)
+	DeletePod(pod *v1.Pod)
 
 	Start()
 }
 
 type FrameworkStatus int
-
-const (
-	STAGING FrameworkStatus = iota
-	RUNNING
-	DISCONNECTED
-)
 
 type framework struct {
 	mesosMaster   string
@@ -61,9 +55,9 @@ type framework struct {
 	masterInfo    *mesos.MasterInfo
 	driver        sched.SchedulerDriver // late initialization
 	frameworkId   *mesos.FrameworkID
-	status        FrameworkStatus
 	executor      *mesos.ExecutorInfo
-	offers        *Offers
+
+	pendingTasks *cache.FIFO
 
 	reconciler Reconciler
 	clientset  *kubernetes.Clientset
@@ -81,14 +75,13 @@ type Config struct {
 // New creates a new Framework
 func NewFramework(conf *Config) Framework {
 	return &framework{
-		status:        STAGING,
-		offers:        &Offers{},
 		clientset:     conf.KubeClient,
 		stop:          make(chan struct{}),
 		executor:      util.BuildExecutor(conf.ExecutorURI),
 		mesosMaster:   conf.MesosMaster,
 		mesosUser:     conf.MesosUser,
 		frameworkName: conf.FrameworkName,
+		pendingTasks:  cache.NewFIFO(pendingTaskKeyFunc),
 	}
 }
 
@@ -96,7 +89,7 @@ func (k *framework) Start() {
 	config := sched.DriverConfig{
 		Scheduler: k,
 		Framework: &mesos.FrameworkInfo{
-			User: proto.String(k.mesosUser), // Mesos-go will fill in user.
+			User: proto.String(k.mesosUser),
 			Name: proto.String(k.frameworkName),
 		},
 		Master: k.mesosMaster,
@@ -116,53 +109,6 @@ func (k *framework) Start() {
 	glog.Infof("framework terminating")
 }
 
-func (k *framework) Bind(pod *v1.Pod, host string) error {
-	offers := k.offers.Filter(func(o *mesos.Offer) bool {
-		return *o.Hostname == host
-	})
-
-	request := util.GetPodResourceRequest(pod)
-
-	for _, offer := range offers {
-		if util.IsGreater(offer.GetResources(), request) {
-			taskInfo := mesosutil.NewTaskInfo(
-				util.BuildTaskName(pod),
-				util.BuildTaskID(pod),
-				offer.SlaveId,
-				request,
-			)
-
-			taskInfo.Executor = k.executor
-
-			var err error
-			if taskInfo.Data, err = json.Marshal(pod); err != nil {
-				return err
-			}
-
-			if _, err = k.driver.LaunchTasks([]*mesos.OfferID{offer.Id}, []*mesos.TaskInfo{taskInfo}, nil); err != nil {
-				return err
-			}
-			return nil
-		}
-	}
-
-	return fmt.Errorf("Did not found offer on host %v", host)
-}
-
-// Filter based on extender-implemented predicate functions. The filtered list is
-// expected to be a subset of the supplied list. failedNodesMap optionally contains
-// the list of failed nodes and failure reasons.
-func (k *framework) Filter(pod *v1.Pod, nodes []*v1.Node) (filteredNodes []*v1.Node, failedNodesMap FailedNodesMap, err error) {
-	return nodes, nil, nil
-}
-
-// Prioritize based on extender-implemented priority functions. The returned scores & weight
-// are used to compute the weighted score for an extender. The weighted scores are added to
-// the scores computed  by Kubernetes scheduler. The total scores are used to do the host selection.
-func (k *framework) Prioritize(pod *v1.Pod, nodes []*v1.Node) (hostPriorities *HostPriorityList, weight int, err error) {
-	return nil, 0, nil
-}
-
 // Registered is called when the scheduler registered with the master successfully.
 func (k *framework) Registered(drv sched.SchedulerDriver, fid *mesos.FrameworkID, mi *mesos.MasterInfo) {
 	glog.Infof("Scheduler registered with the master: %v with frameworkId: %v\n", mi, fid)
@@ -170,11 +116,9 @@ func (k *framework) Registered(drv sched.SchedulerDriver, fid *mesos.FrameworkID
 	k.driver = drv
 	k.frameworkId = fid
 	k.masterInfo = mi
-	k.status = RUNNING
-
 	k.executor.FrameworkId = k.frameworkId
 
-	k.reconciler = NewReconciler(k.driver, k.clientset)
+	k.reconciler = NewReconciler(k, k.clientset)
 	k.reconciler.Run(k.stop)
 }
 
@@ -185,11 +129,9 @@ func (k *framework) Reregistered(drv sched.SchedulerDriver, mi *mesos.MasterInfo
 
 	k.driver = drv
 	k.masterInfo = mi
-	k.status = RUNNING
-
 	k.executor.FrameworkId = k.frameworkId
 
-	k.reconciler = NewReconciler(k.driver, k.clientset)
+	k.reconciler = NewReconciler(k, k.clientset)
 	k.reconciler.Run(k.stop)
 
 	k.reconciler.Handle(&Event{
@@ -200,22 +142,64 @@ func (k *framework) Reregistered(drv sched.SchedulerDriver, mi *mesos.MasterInfo
 // Disconnected is called when the scheduler loses connection to the master.
 func (k *framework) Disconnected(driver sched.SchedulerDriver) {
 	glog.Infof("Master disconnected!\n")
-
-	k.status = DISCONNECTED
 }
 
 // ResourceOffers is called when the scheduler receives some offers from the master.
 func (k *framework) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 	glog.V(2).Infof("Received offers %+v", offers)
 
-	k.offers.AddAll(offers)
+	for _, task_ := range k.pendingTasks.List() {
+		task, ok := task_.(*kmapi.TaskInfo)
+		if !ok {
+			continue
+		}
+
+		if len(task.Hostname) != 0 {
+			continue
+		}
+
+		taskInfo := mesosutil.NewTaskInfo(
+			task.FullName(),
+			mesosutil.NewTaskID(task.UID),
+			nil,
+			task.Resources,
+		)
+
+		taskInfo.Executor = k.executor
+
+		var err error
+		if taskInfo.Data, err = json.Marshal(task); err != nil {
+			continue
+		}
+
+		for _, offer := range offers {
+			if util.IsGreater(offer.GetResources(), task.Resources) {
+				taskInfo.SlaveId = offer.SlaveId
+				_, err = k.driver.LaunchTasks([]*mesos.OfferID{offer.Id}, []*mesos.TaskInfo{taskInfo}, nil)
+				if err != nil {
+					glog.Errorf("failed to launch task %v", err)
+					continue
+				}
+
+				task.Hostname = offer.GetHostname()
+				break
+			}
+		}
+	}
 }
 
 // OfferRescinded is called when the resources are recinded from the scheduler.
 func (k *framework) OfferRescinded(driver sched.SchedulerDriver, offerId *mesos.OfferID) {
 	glog.Infof("Offer rescinded %v\n", offerId)
+}
 
-	k.offers.Delete(offerId)
+func isAlive(taskStatus *mesos.TaskStatus) bool {
+	if *taskStatus.State == mesos.TaskState_TASK_STAGING ||
+		*taskStatus.State == mesos.TaskState_TASK_STARTING ||
+		*taskStatus.State == mesos.TaskState_TASK_RUNNING {
+		return true
+	}
+	return false
 }
 
 // StatusUpdate is called when a status update message is sent to the scheduler.
@@ -224,6 +208,13 @@ func (k *framework) StatusUpdate(driver sched.SchedulerDriver, taskStatus *mesos
 		k.reconciler.Handle(&Event{
 			Action: DELETE,
 			TaskID: taskStatus.TaskId,
+		})
+	}
+
+	// Delete TaskInfo if it's running or terminated.
+	if !isAlive(taskStatus) {
+		k.pendingTasks.Delete(&kmapi.TaskInfo{
+			UID: taskStatus.TaskId.GetValue(),
 		})
 	}
 }
@@ -241,12 +232,6 @@ func (k *framework) FrameworkMessage(
 // SlaveLost is called when some slave is lost.
 func (k *framework) SlaveLost(driver sched.SchedulerDriver, slaveId *mesos.SlaveID) {
 	glog.Infof("Slave %v is lost\n", slaveId)
-
-	k.offers.DeleteBy(func(o *mesos.Offer) bool {
-		return o.SlaveId.GetValue() == slaveId.GetValue()
-	})
-
-	// Handler in StatusUpdate
 }
 
 // ExecutorLost is called when some executor is lost.
@@ -256,7 +241,6 @@ func (k *framework) ExecutorLost(
 	slaveId *mesos.SlaveID,
 	status int,
 ) {
-	// TODO (k82cn): remove related tasks.
 	glog.Infof("Executor %v of slave %v is lost, status: %v\n", executorId, slaveId, status)
 }
 
@@ -264,4 +248,42 @@ func (k *framework) ExecutorLost(
 // The driver should have been aborted before this is invoked.
 func (k *framework) Error(driver sched.SchedulerDriver, message string) {
 	glog.Fatalf("fatal scheduler error: %v\n", message)
+}
+
+func (k *framework) AddPod(pod *v1.Pod) {
+	if !kmapi.IsSchedulable(pod) {
+		return
+	}
+
+	k.pendingTasks.Add(kmapi.NewTaskInfo(pod))
+}
+
+func (k *framework) UpdatePod(pod *v1.Pod) {
+	if !kmapi.IsSchedulable(pod) {
+		return
+	}
+
+	// If Mesos failed to start the added Pod, reconciler will
+	// send it again; otherwise, ignore it.
+	if _, exist, _ := k.pendingTasks.GetByKey(string(pod.UID)); !exist {
+		k.pendingTasks.Add(kmapi.NewTaskInfo(pod))
+	}
+}
+
+func (k *framework) DeletePod(pod *v1.Pod) {
+	k.pendingTasks.Delete(&kmapi.TaskInfo{
+		UID: string(pod.UID),
+	})
+
+	// NOTICE: there's always race-condition that killing a non-alive task; so
+	// let Mesos to guard it.
+	k.driver.KillTask(kmapi.BuildTaskID(pod))
+}
+
+func pendingTaskKeyFunc(obj interface{}) (string, error) {
+	task, ok := obj.(*kmapi.TaskInfo)
+	if !ok {
+		return "", fmt.Errorf("obj %v is not *TaskInfo", obj)
+	}
+	return task.UID, nil
 }

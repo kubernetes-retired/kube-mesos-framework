@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/kubernetes-incubator/kube-mesos-framework/pkg/util"
+	kmapi "github.com/kubernetes-incubator/kube-mesos-framework/pkg/api"
 	msched "github.com/mesos/mesos-go/executor"
 	mesos "github.com/mesos/mesos-go/mesosproto"
 	mutil "github.com/mesos/mesos-go/mesosutil"
@@ -121,14 +121,14 @@ func (k *Executor) Disconnected(driver msched.ExecutorDriver) {
 func (k *Executor) LaunchTask(driver msched.ExecutorDriver, taskInfo *mesos.TaskInfo) {
 	glog.Infof("Launch task %v\n", taskInfo)
 
-	var pod *v1.Pod
-	if err := json.Unmarshal(taskInfo.Data, pod); err != nil {
+	var task *kmapi.TaskInfo
+	if err := json.Unmarshal(taskInfo.Data, task); err != nil {
 		k.sendStatus(taskInfo.TaskId, mesos.TaskState_TASK_FAILED, err.Error())
 		return
 	}
 
 	b := &v1.Binding{
-		ObjectMeta: v1.ObjectMeta{Namespace: pod.Namespace, Name: pod.Name},
+		ObjectMeta: v1.ObjectMeta{Namespace: task.Namespace, Name: task.Name},
 		Target: v1.ObjectReference{
 			Kind: "Node",
 			Name: k.hostname,
@@ -222,13 +222,13 @@ func (k *Executor) startPodInformer() {
 			if old.Status.Phase != obj.Status.Phase {
 				switch obj.Status.Phase {
 				case v1.PodPending:
-					k.sendStatus(util.BuildTaskID(obj), mesos.TaskState_TASK_STARTING, "")
+					k.sendStatus(kmapi.BuildTaskID(obj), mesos.TaskState_TASK_STARTING, "")
 				case v1.PodRunning:
-					k.sendStatus(util.BuildTaskID(obj), mesos.TaskState_TASK_RUNNING, "")
+					k.sendStatus(kmapi.BuildTaskID(obj), mesos.TaskState_TASK_RUNNING, "")
 				case v1.PodSucceeded:
-					k.sendStatus(util.BuildTaskID(obj), mesos.TaskState_TASK_FINISHED, "")
+					k.sendStatus(kmapi.BuildTaskID(obj), mesos.TaskState_TASK_FINISHED, "")
 				case v1.PodFailed:
-					k.sendStatus(util.BuildTaskID(obj), mesos.TaskState_TASK_FINISHED, "")
+					k.sendStatus(kmapi.BuildTaskID(obj), mesos.TaskState_TASK_FINISHED, "")
 				case v1.PodUnknown:
 					glog.Warningf("The status of pod %v/%v is unkonwn, waiting for scheduler to correct it", obj.Namespace, obj.Name)
 				}
