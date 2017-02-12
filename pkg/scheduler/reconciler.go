@@ -55,11 +55,11 @@ type Reconciler interface {
 
 type reconciler struct {
 	driver    bindings.SchedulerDriver
-	clientset kubernetes.Clientset
+	clientset *kubernetes.Clientset
 	eventChan chan Event
 }
 
-func NewReconciler(driver bindings.SchedulerDriver, cs kubernetes.Clientset) Reconciler {
+func NewReconciler(driver bindings.SchedulerDriver, cs *kubernetes.Clientset) Reconciler {
 	return &reconciler{
 		driver:    driver,
 		clientset: cs,
@@ -69,7 +69,7 @@ func NewReconciler(driver bindings.SchedulerDriver, cs kubernetes.Clientset) Rec
 func (r *reconciler) Run(stop chan struct{}) {
 	// Watching Pending & Running Pods.
 	selector := fields.ParseSelectorOrDie("status.phase!=" + string(v1.PodSucceeded) + ",status.phase!=" + string(v1.PodFailed))
-	lw := cache.NewListWatchFromClient(r.clientset, "pods", v1.NamespaceAll, selector)
+	lw := cache.NewListWatchFromClient(r.clientset.CoreClient, "pods", v1.NamespaceAll, selector)
 
 	podInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{

@@ -24,7 +24,7 @@ import (
 )
 
 func (e *HTTPExtender) Filter(w http.ResponseWriter, req *http.Request) {
-	e.Framework.Filter(nil, "")
+	e.Framework.Filter(nil, nil)
 }
 
 func (e *HTTPExtender) Bind(w http.ResponseWriter, req *http.Request) {

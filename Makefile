@@ -15,7 +15,7 @@
 OUTDIR=_output
 
 release: init
-#	go build -o ${OUTDIR}/k8sm-scheduler cmd/k8sm-scheduler/scheduler.go
+	go build -o ${OUTDIR}/k8sm-scheduler cmd/k8sm-scheduler/scheduler.go
 	go build -o ${OUTDIR}/k8sm-executor cmd/k8sm-executor/executor.go
 
 deps:

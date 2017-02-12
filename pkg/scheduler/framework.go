@@ -67,7 +67,7 @@ type framework struct {
 
 	reconciler Reconciler
 	clientset  *kubernetes.Clientset
-	stop       chan<- struct{}
+	stop       chan struct{}
 }
 
 type Config struct {
@@ -84,7 +84,7 @@ func NewFramework(conf *Config) Framework {
 		status:        STAGING,
 		offers:        &Offers{},
 		clientset:     conf.KubeClient,
-		stop:          make(chan<- struct{}),
+		stop:          make(chan struct{}),
 		executor:      util.BuildExecutor(conf.ExecutorURI),
 		mesosMaster:   conf.MesosMaster,
 		mesosUser:     conf.MesosUser,
@@ -124,7 +124,7 @@ func (k *framework) Bind(pod *v1.Pod, host string) error {
 	request := util.GetPodResourceRequest(pod)
 
 	for _, offer := range offers {
-		if util.IsGreater(offer.GetResources(), request) > 0 {
+		if util.IsGreater(offer.GetResources(), request) {
 			taskInfo := mesosutil.NewTaskInfo(
 				util.BuildTaskName(pod),
 				util.BuildTaskID(pod),
@@ -139,7 +139,7 @@ func (k *framework) Bind(pod *v1.Pod, host string) error {
 				return err
 			}
 
-			if _, err = k.driver.LaunchTasks([]*mesos.OfferID{offer.Id}, taskInfo, nil); err != nil {
+			if _, err = k.driver.LaunchTasks([]*mesos.OfferID{offer.Id}, []*mesos.TaskInfo{taskInfo}, nil); err != nil {
 				return err
 			}
 			return nil
@@ -220,7 +220,7 @@ func (k *framework) OfferRescinded(driver sched.SchedulerDriver, offerId *mesos.
 
 // StatusUpdate is called when a status update message is sent to the scheduler.
 func (k *framework) StatusUpdate(driver sched.SchedulerDriver, taskStatus *mesos.TaskStatus) {
-	if taskStatus.State == mesos.TaskState_TASK_LOST || taskStatus.State == mesos.TaskState_TASK_ERROR {
+	if *taskStatus.State == mesos.TaskState_TASK_LOST || *taskStatus.State == mesos.TaskState_TASK_ERROR {
 		k.reconciler.Handle(&Event{
 			Action: DELETE,
 			TaskID: taskStatus.TaskId,

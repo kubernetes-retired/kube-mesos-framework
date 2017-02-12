@@ -32,7 +32,7 @@ func Run(s *options.SchedulerServer) error {
 	// Build KubeClient
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Start MesosFramework
